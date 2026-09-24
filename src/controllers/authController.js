@@ -10,22 +10,29 @@ const {
 } = require("../services/authService");
 
 // =====================================
-// COOKIE OPTIONS
+// COOKIE CONFIGURATION
 // =====================================
+
+const COOKIE_NAME = "serviceos_token";
 
 const cookieOptions = {
   httpOnly: true,
 
-  // HTTPS হলে production-এ true হবে
+  // HTTPS required in production
   secure: process.env.NODE_ENV === "production",
 
-  // Localhost development-এর জন্য lax
+  // Cross-site cookie in production
+  // Local development uses lax
   sameSite:
     process.env.NODE_ENV === "production"
       ? "none"
       : "lax",
 
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  // 7 days
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+
+  // Cookie available for the entire application
+  path: "/",
 };
 
 // =====================================
@@ -37,12 +44,12 @@ const signup = async (req, res, next) => {
     // Validate request body
     const validatedData = signupSchema.parse(req.body);
 
-    // Create user + generate JWT
+    // Create user and generate JWT
     const result = await signupUser(validatedData);
 
     // Store JWT inside HTTP-only cookie
     res.cookie(
-      "serviceos_token",
+      COOKIE_NAME,
       result.token,
       cookieOptions
     );
@@ -70,12 +77,12 @@ const login = async (req, res, next) => {
     // Validate request body
     const validatedData = loginSchema.parse(req.body);
 
-    // Login user + generate JWT
+    // Authenticate user and generate JWT
     const result = await loginUser(validatedData);
 
     // Store JWT inside HTTP-only cookie
     res.cookie(
-      "serviceos_token",
+      COOKIE_NAME,
       result.token,
       cookieOptions
     );
@@ -95,12 +102,42 @@ const login = async (req, res, next) => {
 };
 
 // =====================================
+// GET CURRENT USER
+// =====================================
+
+const getMe = async (req, res, next) => {
+  try {
+    // req.user is created by authMiddleware
+    const user = req.user;
+
+    res.status(200).json({
+      success: true,
+      message: "Authenticated user",
+
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =====================================
 // LOGOUT
 // =====================================
 
 const logout = (req, res) => {
-  // Remove authentication cookie
-  res.clearCookie("serviceos_token", {
+  // Clear authentication cookie
+  res.clearCookie(COOKIE_NAME, {
     httpOnly: true,
 
     secure:
@@ -110,6 +147,8 @@ const logout = (req, res) => {
       process.env.NODE_ENV === "production"
         ? "none"
         : "lax",
+
+    path: "/",
   });
 
   res.status(200).json({
@@ -125,6 +164,7 @@ const logout = (req, res) => {
 module.exports = {
   signup,
   login,
+  getMe,
   logout,
 };
 

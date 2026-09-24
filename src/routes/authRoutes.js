@@ -4,22 +4,36 @@ const express = require("express");
 const {
   signup,
   login,
+  getMe,
   logout,
 } = require("../controllers/authController");
+
+const protect = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
 // =====================================
-// AUTH ROUTES
+// PUBLIC AUTH ROUTES
 // =====================================
 
-// POST /api/auth/signup
+// Create new account
 router.post("/signup", signup);
 
-// POST /api/auth/login
+// Login existing user
 router.post("/login", login);
 
-// POST /api/auth/logout
+// =====================================
+// PROTECTED AUTH ROUTES
+// =====================================
+
+// Get currently authenticated user
+router.get("/me", protect, getMe);
+
+// =====================================
+// LOGOUT
+// =====================================
+
+// Logout current user
 router.post("/logout", logout);
 
 // =====================================
@@ -27,4 +41,5 @@ router.post("/logout", logout);
 // =====================================
 
 module.exports = router;
+
 
