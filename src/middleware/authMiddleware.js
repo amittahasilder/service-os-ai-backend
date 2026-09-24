@@ -1,3 +1,4 @@
+
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
@@ -7,56 +8,138 @@ const User = require("../models/User");
 
 const protect = async (req, res, next) => {
   try {
-    // Get JWT from HTTP-only cookie
-    const token = req.cookies.serviceos_token;
+    // =====================================
+    // CHECK JWT SECRET
+    // =====================================
 
-    // Token না থাকলে
-    if (!token) {
-      const error = new Error("Authentication required");
-      error.statusCode = 401;
+    if (!process.env.JWT_SECRET) {
+      const error = new Error(
+        "JWT_SECRET is missing in environment variables"
+      );
+
+      error.statusCode = 500;
+
       throw error;
     }
 
-    // Verify JWT
+    // =====================================
+    // GET TOKEN FROM COOKIE
+    // =====================================
+
+    const token = req.cookies?.serviceos_token;
+
+    // =====================================
+    // TOKEN NOT FOUND
+    // =====================================
+
+    if (!token) {
+      const error = new Error(
+        "Authentication required"
+      );
+
+      error.statusCode = 401;
+
+      throw error;
+    }
+
+    // =====================================
+    // VERIFY JWT
+    // =====================================
+
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET
     );
 
-    // Find user from database
-    const user = await User.findById(decoded.userId);
+    // =====================================
+    // CHECK JWT PAYLOAD
+    // =====================================
 
-    // User পাওয়া না গেলে
-    if (!user) {
-      const error = new Error("User not found");
+    if (!decoded?.userId) {
+      const error = new Error(
+        "Invalid authentication token"
+      );
+
       error.statusCode = 401;
+
       throw error;
     }
 
-    // User inactive হলে
+    // =====================================
+    // FIND USER
+    // =====================================
+
+    const user = await User.findById(
+      decoded.userId
+    );
+
+    // =====================================
+    // USER NOT FOUND
+    // =====================================
+
+    if (!user) {
+      const error = new Error(
+        "User not found"
+      );
+
+      error.statusCode = 401;
+
+      throw error;
+    }
+
+    // =====================================
+    // CHECK ACCOUNT STATUS
+    // =====================================
+
     if (!user.isActive) {
-      const error = new Error("Your account is inactive");
+      const error = new Error(
+        "Your account is inactive"
+      );
+
       error.statusCode = 403;
+
       throw error;
     }
 
-    // Attach user to request
+    // =====================================
+    // ATTACH USER TO REQUEST
+    // =====================================
+
     req.user = user;
 
-    // Continue
+    // =====================================
+    // CONTINUE REQUEST
+    // =====================================
+
     next();
   } catch (error) {
-    // JWT invalid/expired
+    // =====================================
+    // JWT ERROR HANDLING
+    // =====================================
+
     if (
       error.name === "JsonWebTokenError" ||
       error.name === "TokenExpiredError"
     ) {
       error.statusCode = 401;
-      error.message = "Invalid or expired authentication token";
+
+      error.message =
+        error.name === "TokenExpiredError"
+          ? "Authentication token has expired"
+          : "Invalid authentication token";
     }
+
+    // =====================================
+    // SEND ERROR TO GLOBAL ERROR HANDLER
+    // =====================================
 
     next(error);
   }
 };
 
+// =====================================
+// EXPORT
+// =====================================
+
 module.exports = protect;
+
