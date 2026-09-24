@@ -1,9 +1,11 @@
+
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 
 const authRoutes = require("./routes/authRoutes");
+const organizationRoutes = require("./routes/organizationRoutes");
 
 const app = express();
 
@@ -41,7 +43,14 @@ app.use(cookieParser());
 // API ROUTES
 // =====================================
 
+// Authentication
 app.use("/api/auth", authRoutes);
+
+// Organizations / Businesses
+app.use(
+  "/api/organizations",
+  organizationRoutes
+);
 
 // =====================================
 // HEALTH CHECK
@@ -51,7 +60,8 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
     message: "ServiceOS API is running",
-    environment: process.env.NODE_ENV || "development",
+    environment:
+      process.env.NODE_ENV || "development",
     timestamp: new Date().toISOString(),
   });
 });
@@ -87,8 +97,14 @@ app.use((err, req, res, next) => {
 
   res.status(err.statusCode || 500).json({
     success: false,
-    message: err.message || "Internal Server Error",
+    message:
+      err.message || "Internal Server Error",
   });
 });
 
+// =====================================
+// EXPORT APP
+// =====================================
+
 module.exports = app;
+

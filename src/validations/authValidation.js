@@ -1,3 +1,4 @@
+
 const { z } = require("zod");
 
 // =====================================
@@ -5,22 +6,72 @@ const { z } = require("zod");
 // =====================================
 
 const signupSchema = z.object({
+  // ===================================
+  // USER INFORMATION
+  // ===================================
+
   name: z
     .string()
     .trim()
-    .min(2, "Name must be at least 2 characters")
-    .max(100, "Name cannot exceed 100 characters"),
+    .min(
+      2,
+      "Name must be at least 2 characters"
+    )
+    .max(
+      100,
+      "Name cannot exceed 100 characters"
+    ),
 
   email: z
     .string()
     .trim()
     .toLowerCase()
-    .email("Please provide a valid email"),
+    .email(
+      "Please provide a valid email"
+    ),
 
   password: z
     .string()
-    .min(6, "Password must be at least 6 characters")
-    .max(100, "Password cannot exceed 100 characters"),
+    .min(
+      6,
+      "Password must be at least 6 characters"
+    )
+    .max(
+      100,
+      "Password cannot exceed 100 characters"
+    ),
+
+  // ===================================
+  // BUSINESS INFORMATION
+  // ===================================
+
+  businessName: z
+    .string()
+    .trim()
+    .min(
+      2,
+      "Business name must be at least 2 characters"
+    )
+    .max(
+      150,
+      "Business name cannot exceed 150 characters"
+    ),
+
+  businessType: z.enum([
+    "cleaning",
+    "plumbing",
+    "hvac",
+    "electrical",
+    "repair",
+    "salon",
+    "agency",
+    "consultant",
+    "freelancer",
+    "photography",
+    "landscaping",
+    "automotive",
+    "other",
+  ]),
 });
 
 // =====================================
@@ -32,11 +83,16 @@ const loginSchema = z.object({
     .string()
     .trim()
     .toLowerCase()
-    .email("Please provide a valid email"),
+    .email(
+      "Please provide a valid email"
+    ),
 
   password: z
     .string()
-    .min(1, "Password is required"),
+    .min(
+      1,
+      "Password is required"
+    ),
 });
 
 // =====================================
@@ -47,3 +103,4 @@ module.exports = {
   signupSchema,
   loginSchema,
 };
+

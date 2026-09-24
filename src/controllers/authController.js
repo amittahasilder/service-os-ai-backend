@@ -19,19 +19,21 @@ const cookieOptions = {
   httpOnly: true,
 
   // HTTPS required in production
-  secure: process.env.NODE_ENV === "production",
+  secure:
+    process.env.NODE_ENV === "production",
 
-  // Cross-site cookie in production
-  // Local development uses lax
+  // Local development = lax
+  // Production = cross-site
   sameSite:
     process.env.NODE_ENV === "production"
       ? "none"
       : "lax",
 
   // 7 days
-  maxAge: 7 * 24 * 60 * 60 * 1000,
+  maxAge:
+    7 * 24 * 60 * 60 * 1000,
 
-  // Cookie available for the entire application
+  // Available throughout the application
   path: "/",
 };
 
@@ -39,28 +41,53 @@ const cookieOptions = {
 // SIGNUP
 // =====================================
 
-const signup = async (req, res, next) => {
+const signup = async (
+  req,
+  res,
+  next
+) => {
   try {
+    // -----------------------------------
     // Validate request body
-    const validatedData = signupSchema.parse(req.body);
+    // -----------------------------------
 
-    // Create user and generate JWT
-    const result = await signupUser(validatedData);
+    const validatedData =
+      signupSchema.parse(req.body);
 
-    // Store JWT inside HTTP-only cookie
+    // -----------------------------------
+    // Create user + business
+    // -----------------------------------
+
+    const result =
+      await signupUser(
+        validatedData
+      );
+
+    // -----------------------------------
+    // Store JWT in HTTP-only cookie
+    // -----------------------------------
+
     res.cookie(
       COOKIE_NAME,
       result.token,
       cookieOptions
     );
 
-    // Send response
+    // -----------------------------------
+    // Response
+    // -----------------------------------
+
     res.status(201).json({
       success: true,
-      message: "Account created successfully",
+
+      message:
+        "Account and business created successfully",
 
       data: {
         user: result.user,
+
+        organization:
+          result.organization,
       },
     });
   } catch (error) {
@@ -72,25 +99,47 @@ const signup = async (req, res, next) => {
 // LOGIN
 // =====================================
 
-const login = async (req, res, next) => {
+const login = async (
+  req,
+  res,
+  next
+) => {
   try {
+    // -----------------------------------
     // Validate request body
-    const validatedData = loginSchema.parse(req.body);
+    // -----------------------------------
 
-    // Authenticate user and generate JWT
-    const result = await loginUser(validatedData);
+    const validatedData =
+      loginSchema.parse(req.body);
 
-    // Store JWT inside HTTP-only cookie
+    // -----------------------------------
+    // Authenticate user
+    // -----------------------------------
+
+    const result =
+      await loginUser(
+        validatedData
+      );
+
+    // -----------------------------------
+    // Store JWT in HTTP-only cookie
+    // -----------------------------------
+
     res.cookie(
       COOKIE_NAME,
       result.token,
       cookieOptions
     );
 
-    // Send response
+    // -----------------------------------
+    // Response
+    // -----------------------------------
+
     res.status(200).json({
       success: true,
-      message: "Login successful",
+
+      message:
+        "Login successful",
 
       data: {
         user: result.user,
@@ -105,14 +154,23 @@ const login = async (req, res, next) => {
 // GET CURRENT USER
 // =====================================
 
-const getMe = async (req, res, next) => {
+const getMe = async (
+  req,
+  res,
+  next
+) => {
   try {
-    // req.user is created by authMiddleware
+    // -----------------------------------
+    // req.user comes from authMiddleware
+    // -----------------------------------
+
     const user = req.user;
 
     res.status(200).json({
       success: true,
-      message: "Authenticated user",
+
+      message:
+        "Authenticated user",
 
       data: {
         user: {
@@ -135,25 +193,38 @@ const getMe = async (req, res, next) => {
 // LOGOUT
 // =====================================
 
-const logout = (req, res) => {
+const logout = (
+  req,
+  res
+) => {
+  // -----------------------------------
   // Clear authentication cookie
-  res.clearCookie(COOKIE_NAME, {
-    httpOnly: true,
+  // -----------------------------------
 
-    secure:
-      process.env.NODE_ENV === "production",
+  res.clearCookie(
+    COOKIE_NAME,
+    {
+      httpOnly: true,
 
-    sameSite:
-      process.env.NODE_ENV === "production"
-        ? "none"
-        : "lax",
+      secure:
+        process.env.NODE_ENV ===
+        "production",
 
-    path: "/",
-  });
+      sameSite:
+        process.env.NODE_ENV ===
+        "production"
+          ? "none"
+          : "lax",
+
+      path: "/",
+    }
+  );
 
   res.status(200).json({
     success: true,
-    message: "Logout successful",
+
+    message:
+      "Logout successful",
   });
 };
 
