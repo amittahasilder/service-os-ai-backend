@@ -1,32 +1,30 @@
 
 // =====================================
 // ROLE-BASED ACCESS CONTROL (RBAC)
+// ServiceOS
 // =====================================
 
 const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     try {
       // =====================================
-      // CHECK AUTHENTICATED USER
+      // 1. CHECK AUTHENTICATED USER
       // =====================================
 
       if (!req.user) {
-        const error = new Error(
-          "Authentication required"
-        );
-
+        const error = new Error("Authentication required");
         error.statusCode = 401;
 
         throw error;
       }
 
       // =====================================
-      // CHECK USER ROLE
+      // 2. CHECK ORGANIZATION MEMBERSHIP
       // =====================================
 
-      if (!req.user.role) {
+      if (!req.membership) {
         const error = new Error(
-          "User role is not defined"
+          "Organization membership required"
         );
 
         error.statusCode = 403;
@@ -35,10 +33,26 @@ const authorize = (...allowedRoles) => {
       }
 
       // =====================================
-      // CHECK ALLOWED ROLES
+      // 3. GET ORGANIZATION ROLE
       // =====================================
 
-      if (!allowedRoles.includes(req.user.role)) {
+      const userRole = req.organizationRole;
+
+      if (!userRole) {
+        const error = new Error(
+          "Organization role is not defined"
+        );
+
+        error.statusCode = 403;
+
+        throw error;
+      }
+
+      // =====================================
+      // 4. CHECK ALLOWED ROLES
+      // =====================================
+
+      if (!allowedRoles.includes(userRole)) {
         const error = new Error(
           "You do not have permission to access this resource"
         );
@@ -49,7 +63,7 @@ const authorize = (...allowedRoles) => {
       }
 
       // =====================================
-      // ACCESS GRANTED
+      // 5. ACCESS GRANTED
       // =====================================
 
       next();
@@ -64,4 +78,3 @@ const authorize = (...allowedRoles) => {
 // =====================================
 
 module.exports = authorize;
-
