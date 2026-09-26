@@ -1,13 +1,13 @@
-
 const express = require("express");
 
 const {
-  createBusiness,
-  getMyBusinesses,
-  getBusiness,
+createBusiness,
+getMyBusinesses,
+getBusiness,
 } = require("../controllers/organizationController");
 
 const protect = require("../middleware/authMiddleware");
+const tenantMiddleware = require("../middleware/tenantMiddleware");
 
 const router = express.Router();
 
@@ -16,25 +16,42 @@ const router = express.Router();
 // =====================================
 
 // Create a new business
-router.post(
-  "/",
-  protect,
-  createBusiness
-);
+router.post("/", protect, createBusiness);
 
 // Get all businesses of logged-in user
+router.get("/", protect, getMyBusinesses);
+
+// Tenant security test route
 router.get(
-  "/",
-  protect,
-  getMyBusinesses
+"/:organizationId/context",
+protect,
+(req, res, next) => {
+req.headers["x-organization-id"] =
+req.params.organizationId;
+
+```
+next();
+```
+
+},
+tenantMiddleware,
+(req, res) => {
+res.status(200).json({
+success: true,
+message: "Tenant access granted",
+data: {
+userId: req.user._id,
+organization: req.organization,
+membership: {
+role: req.organizationRole,
+status: req.membership.status,
+},
+},
+});
+}
 );
 
 // Get a single business
-router.get(
-  "/:organizationId",
-  protect,
-  getBusiness
-);
+router.get("/:organizationId", protect, getBusiness);
 
 module.exports = router;
-
