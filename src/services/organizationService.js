@@ -1,7 +1,13 @@
 
 
+// =====================================
+// ORGANIZATION SERVICE
+// ServiceOS
+// =====================================
+
 const Organization = require("../models/Organization");
 const OrganizationMember = require("../models/OrganizationMember");
+
 
 // =====================================
 // SLUG GENERATOR
@@ -15,23 +21,50 @@ const generateSlug = (name) => {
     .replace(/^-+|-+$/g, "");
 };
 
+
 // =====================================
 // UNIQUE SLUG GENERATOR
 // =====================================
 
-const generateUniqueSlug = async (name) => {
+const generateUniqueSlug = async (
+  name,
+  excludeOrganizationId = null
+) => {
   const baseSlug = generateSlug(name);
 
   let slug = baseSlug;
   let counter = 1;
 
-  while (await Organization.exists({ slug })) {
+  while (true) {
+    const query = {
+      slug,
+    };
+
+    // -------------------------------------
+    // When updating an organization,
+    // ignore its own existing slug
+    // -------------------------------------
+
+    if (excludeOrganizationId) {
+      query._id = {
+        $ne: excludeOrganizationId,
+      };
+    }
+
+    const exists =
+      await Organization.exists(query);
+
+    if (!exists) {
+      break;
+    }
+
     slug = `${baseSlug}-${counter}`;
     counter++;
   }
 
   return slug;
 };
+
 
 // =====================================
 // CREATE ORGANIZATION
@@ -51,22 +84,25 @@ const createOrganization = async ({
   // Generate unique slug
   // -------------------------------------
 
-  const slug = await generateUniqueSlug(name);
+  const slug =
+    await generateUniqueSlug(name);
 
   // -------------------------------------
   // Create organization
   // -------------------------------------
 
-  const organization = await Organization.create({
-    name,
-    slug,
-    businessType,
-    email,
-    phone,
-    website,
-    address,
-    logo,
-  });
+  const organization =
+    await Organization.create({
+      name,
+      slug,
+      businessType,
+      email,
+      phone,
+      website,
+      address,
+      logo,
+      isActive: true,
+    });
 
   // -------------------------------------
   // Create owner membership
@@ -81,8 +117,7 @@ const createOrganization = async ({
     });
   } catch (error) {
     // -----------------------------------
-    // Rollback organization if membership
-    // creation fails
+    // Rollback organization
     // -----------------------------------
 
     await Organization.findByIdAndDelete(
@@ -99,11 +134,14 @@ const createOrganization = async ({
   return organization;
 };
 
+
 // =====================================
 // GET USER ORGANIZATIONS
 // =====================================
 
-const getUserOrganizations = async (userId) => {
+const getUserOrganizations = async (
+  userId
+) => {
   const memberships =
     await OrganizationMember.find({
       user: userId,
@@ -111,8 +149,9 @@ const getUserOrganizations = async (userId) => {
     })
       .populate({
         path: "organization",
+
         select:
-          "name slug businessType email phone website logo isActive subscriptionPlan createdAt",
+          "name slug businessType email phone website address logo isActive subscriptionPlan createdAt updatedAt",
       })
       .sort({
         createdAt: -1,
@@ -120,6 +159,7 @@ const getUserOrganizations = async (userId) => {
 
   return memberships;
 };
+
 
 // =====================================
 // GET SINGLE USER ORGANIZATION
@@ -136,9 +176,14 @@ const getUserOrganization = async ({
       status: "active",
     }).populate({
       path: "organization",
+
       select:
         "name slug businessType email phone website address logo isActive subscriptionPlan createdAt updatedAt",
     });
+
+  // -------------------------------------
+  // Membership not found
+  // -------------------------------------
 
   if (!membership) {
     const error = new Error(
@@ -150,8 +195,155 @@ const getUserOrganization = async ({
     throw error;
   }
 
+  // -------------------------------------
+  // Organization not found
+  // -------------------------------------
+
+  if (!membership.organization) {
+    const error = new Error(
+      "Organization not found"
+    );
+
+    error.statusCode = 404;
+
+    throw error;
+  }
+
+  // -------------------------------------
+  // Organization inactive
+  // -------------------------------------
+
+  if (!membership.organization.isActive) {
+    const error = new Error(
+      "This organization is inactive"
+    );
+
+    error.statusCode = 403;
+
+    throw error;
+  }
+
   return membership;
 };
+
+
+// =====================================
+// UPDATE ORGANIZATION
+// =====================================
+
+const updateOrganization = async ({
+  organizationId,
+  updateData,
+}) => {
+  // -------------------------------------
+  // Find organization
+  // -------------------------------------
+
+  const organization =
+    await Organization.findById(
+      organizationId
+    );
+
+  if (!organization) {
+    const error = new Error(
+      "Organization not found"
+    );
+
+    error.statusCode = 404;
+
+    throw error;
+  }
+
+  // -------------------------------------
+  // Generate new slug if name changes
+  // -------------------------------------
+
+  if (
+    updateData.name &&
+    updateData.name.trim() !==
+      organization.name
+  ) {
+    updateData.slug =
+      await generateUniqueSlug(
+        updateData.name,
+        organizationId
+      );
+  }
+
+  // -------------------------------------
+  // Update organization
+  // -------------------------------------
+
+  Object.assign(
+    organization,
+    updateData
+  );
+
+  await organization.save();
+
+  // -------------------------------------
+  // Return updated organization
+  // -------------------------------------
+
+  return organization;
+};
+
+
+// =====================================
+// DEACTIVATE ORGANIZATION
+// =====================================
+
+const deactivateOrganization = async (
+  organizationId
+) => {
+  // -------------------------------------
+  // Find organization
+  // -------------------------------------
+
+  const organization =
+    await Organization.findById(
+      organizationId
+    );
+
+  if (!organization) {
+    const error = new Error(
+      "Organization not found"
+    );
+
+    error.statusCode = 404;
+
+    throw error;
+  }
+
+  // -------------------------------------
+  // Already inactive
+  // -------------------------------------
+
+  if (!organization.isActive) {
+    const error = new Error(
+      "Organization is already inactive"
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  // -------------------------------------
+  // Deactivate
+  // -------------------------------------
+
+  organization.isActive = false;
+
+  await organization.save();
+
+  // -------------------------------------
+  // Return organization
+  // -------------------------------------
+
+  return organization;
+};
+
 
 // =====================================
 // EXPORT
@@ -161,5 +353,6 @@ module.exports = {
   createOrganization,
   getUserOrganizations,
   getUserOrganization,
+  updateOrganization,
+  deactivateOrganization,
 };
-
