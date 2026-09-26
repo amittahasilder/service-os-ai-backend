@@ -1,3 +1,6 @@
+
+const mongoose = require("mongoose");
+
 const Customer = require("../models/Customer");
 const Lead = require("../models/Lead");
 const User = require("../models/User");
@@ -11,7 +14,6 @@ const createCustomer = async ({
   userId,
   data,
 }) => {
-  // Check assigned/created user
   const userExists = await User.findById(userId);
 
   if (!userExists) {
@@ -49,65 +51,63 @@ const getOrganizationCustomers = async ({
     isActive: true,
   };
 
-  // Status filter
   if (status) {
     query.status = status;
   }
 
-  // Source filter
   if (source) {
     query.source = source;
   }
 
-  // Search
   if (search) {
+    const safeSearch = search.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
+
     query.$or = [
       {
         firstName: {
-          $regex: search,
+          $regex: safeSearch,
           $options: "i",
         },
       },
       {
         lastName: {
-          $regex: search,
+          $regex: safeSearch,
           $options: "i",
         },
       },
       {
         email: {
-          $regex: search,
+          $regex: safeSearch,
           $options: "i",
         },
       },
       {
         phone: {
-          $regex: search,
+          $regex: safeSearch,
           $options: "i",
         },
       },
       {
         company: {
-          $regex: search,
+          $regex: safeSearch,
           $options: "i",
         },
       },
     ];
   }
 
-  const customers =
-    await Customer.find(query)
-      .populate(
-        "createdBy",
-        "name email"
-      )
-      .populate(
-        "convertedFromLead",
-        "name email status"
-      )
-      .sort({
-        createdAt: -1,
-      });
+  const customers = await Customer.find(query)
+    .populate("createdBy", "name email")
+    .populate(
+      "convertedFromLead",
+      "name email status"
+    )
+    .sort({
+      createdAt: -1,
+    });
 
   return customers;
 };
@@ -120,28 +120,20 @@ const getCustomerById = async ({
   organizationId,
   customerId,
 }) => {
-  const customer =
-    await Customer.findOne({
-      _id: customerId,
-      organization: organizationId,
-      isActive: true,
-    })
-      .populate(
-        "createdBy",
-        "name email"
-      )
-      .populate(
-        "convertedFromLead",
-        "name email status"
-      );
-
-  if (!customer) {
-    const error = new Error(
-      "Customer not found"
+  const customer = await Customer.findOne({
+    _id: customerId,
+    organization: organizationId,
+    isActive: true,
+  })
+    .populate("createdBy", "name email")
+    .populate(
+      "convertedFromLead",
+      "name email status"
     );
 
+  if (!customer) {
+    const error = new Error("Customer not found");
     error.statusCode = 404;
-
     throw error;
   }
 
@@ -157,29 +149,24 @@ const updateCustomer = async ({
   customerId,
   data,
 }) => {
-  const customer =
-    await Customer.findOneAndUpdate(
-      {
-        _id: customerId,
-        organization: organizationId,
-        isActive: true,
-      },
-      {
-        $set: data,
-      },
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+  const customer = await Customer.findOneAndUpdate(
+    {
+      _id: customerId,
+      organization: organizationId,
+      isActive: true,
+    },
+    {
+      $set: data,
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
 
   if (!customer) {
-    const error = new Error(
-      "Customer not found"
-    );
-
+    const error = new Error("Customer not found");
     error.statusCode = 404;
-
     throw error;
   }
 
@@ -194,31 +181,27 @@ const deleteCustomer = async ({
   organizationId,
   customerId,
 }) => {
-  const customer =
-    await Customer.findOneAndUpdate(
-      {
-        _id: customerId,
-        organization: organizationId,
-        isActive: true,
+  const customer = await Customer.findOneAndUpdate(
+    {
+      _id: customerId,
+      organization: organizationId,
+      isActive: true,
+    },
+    {
+      $set: {
+        isActive: false,
+        status: "archived",
       },
-      {
-        $set: {
-          isActive: false,
-          status: "archived",
-        },
-      },
-      {
-        new: true,
-      }
-    );
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
 
   if (!customer) {
-    const error = new Error(
-      "Customer not found"
-    );
-
+    const error = new Error("Customer not found");
     error.statusCode = 404;
-
     throw error;
   }
 
@@ -234,7 +217,18 @@ const convertLeadToCustomer = async ({
   leadId,
   userId,
 }) => {
-  // Find lead inside same organization
+  // Validate IDs
+  if (
+    !mongoose.isValidObjectId(organizationId) ||
+    !mongoose.isValidObjectId(leadId) ||
+    !mongoose.isValidObjectId(userId)
+  ) {
+    const error = new Error("Invalid ID format");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Find lead inside the same organization
   const lead = await Lead.findOne({
     _id: leadId,
     organization: organizationId,
@@ -242,63 +236,85 @@ const convertLeadToCustomer = async ({
   });
 
   if (!lead) {
-    const error = new Error(
-      "Lead not found"
-    );
-
+    const error = new Error("Lead not found");
     error.statusCode = 404;
-
     throw error;
   }
 
   // Prevent duplicate conversion
   if (lead.convertedToCustomer) {
     const error = new Error(
-      "This lead has already been converted to a customer"
+      "This lead has already been converted"
     );
 
     error.statusCode = 400;
-
     throw error;
   }
 
-  // Create customer from lead
-  const customer =
-    await Customer.create({
+  // Split lead name safely
+  const nameParts = lead.name.trim().split(/\s+/);
+
+  const firstName = nameParts.shift().slice(0, 50);
+
+  const lastName = nameParts.join(" ").slice(0, 50);
+
+  // Create customer
+  const customer = await Customer.create({
+    organization: organizationId,
+
+    firstName,
+    lastName,
+
+    email: lead.email,
+    phone: lead.phone,
+    company: lead.company,
+
+    source: "lead",
+    notes: lead.notes,
+
+    convertedFromLead: lead._id,
+    convertedAt: new Date(),
+
+    createdBy: userId,
+
+    isActive: true,
+    status: "active",
+  });
+
+  // Atomically link customer to lead
+  const updatedLead = await Lead.findOneAndUpdate(
+    {
+      _id: leadId,
       organization: organizationId,
-
-      firstName: lead.name,
-
-      email: lead.email,
-
-      phone: lead.phone,
-
-      company: lead.company,
-
-      source: "lead",
-
-      notes: lead.notes,
-
-      convertedFromLead: lead._id,
-
-      convertedAt: new Date(),
-
-      createdBy: userId,
-
       isActive: true,
+      convertedToCustomer: null,
+    },
+    {
+      $set: {
+        convertedToCustomer: customer._id,
+        convertedAt: new Date(),
+        status: "won",
+      },
+    },
+    {
+      new: true,
+    }
+  );
 
-      status: "active",
+  // Cleanup if another request converted first
+  if (!updatedLead) {
+    await Customer.deleteOne({
+      _id: customer._id,
+      organization: organizationId,
     });
 
-  // Update lead
-  lead.convertedToCustomer =
-    customer._id;
+    const error = new Error(
+      "Lead has already been converted"
+    );
 
-  lead.convertedAt = new Date();
-
-  lead.status = "won";
-
-  await lead.save();
+    error.statusCode = 409;
+    throw error;
+  }
 
   return customer;
 };
@@ -310,33 +326,41 @@ const convertLeadToCustomer = async ({
 const getCustomerStats = async ({
   organizationId,
 }) => {
-  const stats =
-    await Customer.aggregate([
-      {
-        $match: {
-          organization: organizationId,
-          isActive: true,
-        },
-      },
+  if (!mongoose.isValidObjectId(organizationId)) {
+    const error = new Error(
+      "Invalid organization ID"
+    );
 
-      {
-        $group: {
-          _id: "$status",
-          count: {
-            $sum: 1,
-          },
-          totalSpent: {
-            $sum: "$totalSpent",
-          },
-        },
-      },
+    error.statusCode = 400;
+    throw error;
+  }
 
-      {
-        $sort: {
-          _id: 1,
+  const stats = await Customer.aggregate([
+    {
+      $match: {
+        organization: new mongoose.Types.ObjectId(
+          organizationId
+        ),
+        isActive: true,
+      },
+    },
+    {
+      $group: {
+        _id: "$status",
+        count: {
+          $sum: 1,
+        },
+        totalSpent: {
+          $sum: "$totalSpent",
         },
       },
-    ]);
+    },
+    {
+      $sort: {
+        _id: 1,
+      },
+    },
+  ]);
 
   return stats;
 };
