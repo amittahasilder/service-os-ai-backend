@@ -6,7 +6,7 @@
 const express = require("express");
 
 // =====================================
-// CONTROLLERS
+// ORGANIZATION CONTROLLERS
 // =====================================
 
 const {
@@ -18,6 +18,17 @@ const {
 } = require("../controllers/organizationController");
 
 // =====================================
+// ORGANIZATION MEMBER CONTROLLERS
+// =====================================
+
+const {
+  getMembers,
+  addMember,
+  updateMemberRole,
+  removeMember,
+} = require("../controllers/organizationMemberController");
+
+// =====================================
 // MIDDLEWARE
 // =====================================
 
@@ -26,10 +37,11 @@ const tenantMiddleware = require("../middleware/tenantMiddleware");
 const authorize = require("../middleware/roleMiddleware");
 
 // =====================================
-// UTILS
+// ROUTER
 // =====================================
 
 const router = express.Router();
+
 
 // =====================================
 // ORGANIZATION / BUSINESS ROUTES
@@ -57,7 +69,8 @@ router.post(
 |--------------------------------------------------------------------------
 | GET MY BUSINESSES
 |--------------------------------------------------------------------------
-| Get all businesses where the logged-in user is a member.
+| Get all businesses where the logged-in user
+| is an active member.
 |
 | GET /api/organizations
 |
@@ -75,9 +88,11 @@ router.get(
 | TENANT SECURITY TEST
 |--------------------------------------------------------------------------
 | Temporary route for testing:
+|
 | - Authentication
 | - Organization membership
 | - Tenant isolation
+| - Organization role
 |
 | GET /api/organizations/:organizationId/context
 |
@@ -88,7 +103,10 @@ router.get(
 
   protect,
 
-  // Put organization ID into request header
+  // -------------------------------------
+  // Set organization ID
+  // -------------------------------------
+
   (req, res, next) => {
     req.headers["x-organization-id"] =
       req.params.organizationId;
@@ -97,6 +115,10 @@ router.get(
   },
 
   tenantMiddleware,
+
+  // -------------------------------------
+  // Response
+  // -------------------------------------
 
   (req, res) => {
     res.status(200).json({
@@ -110,8 +132,10 @@ router.get(
         organization: req.organization,
 
         membership: {
+          id: req.membership._id,
           role: req.organizationRole,
           status: req.membership.status,
+          joinedAt: req.membership.joinedAt,
         },
       },
     });
@@ -123,7 +147,6 @@ router.get(
 |--------------------------------------------------------------------------
 | GET SINGLE BUSINESS
 |--------------------------------------------------------------------------
-| User must belong to the selected business.
 |
 | GET /api/organizations/:organizationId
 |
@@ -134,8 +157,10 @@ router.get(
 
   protect,
 
-  // Convert URL organizationId
-  // into tenant context
+  // -------------------------------------
+  // Set organization ID
+  // -------------------------------------
+
   (req, res, next) => {
     req.headers["x-organization-id"] =
       req.params.organizationId;
@@ -164,6 +189,10 @@ router.put(
 
   protect,
 
+  // -------------------------------------
+  // Set organization ID
+  // -------------------------------------
+
   (req, res, next) => {
     req.headers["x-organization-id"] =
       req.params.organizationId;
@@ -173,7 +202,14 @@ router.put(
 
   tenantMiddleware,
 
-  authorize("owner", "admin"),
+  // -------------------------------------
+  // RBAC
+  // -------------------------------------
+
+  authorize(
+    "owner",
+    "admin"
+  ),
 
   updateBusiness
 );
@@ -183,7 +219,7 @@ router.put(
 |--------------------------------------------------------------------------
 | DEACTIVATE BUSINESS
 |--------------------------------------------------------------------------
-| Only owner can deactivate a business.
+| Only owner can deactivate business.
 |
 | PATCH /api/organizations/:organizationId/deactivate
 |
@@ -194,6 +230,10 @@ router.patch(
 
   protect,
 
+  // -------------------------------------
+  // Set organization ID
+  // -------------------------------------
+
   (req, res, next) => {
     req.headers["x-organization-id"] =
       req.params.organizationId;
@@ -203,9 +243,186 @@ router.patch(
 
   tenantMiddleware,
 
+  // -------------------------------------
+  // RBAC
+  // -------------------------------------
+
   authorize("owner"),
 
   deactivateBusiness
+);
+
+
+// =====================================
+// ORGANIZATION MEMBER ROUTES
+// =====================================
+
+
+/*
+|--------------------------------------------------------------------------
+| GET ORGANIZATION MEMBERS
+|--------------------------------------------------------------------------
+| All active members can view members.
+|
+| GET /api/organizations/:organizationId/members
+|
+*/
+
+router.get(
+  "/:organizationId/members",
+
+  protect,
+
+  // -------------------------------------
+  // Set organization ID
+  // -------------------------------------
+
+  (req, res, next) => {
+    req.headers["x-organization-id"] =
+      req.params.organizationId;
+
+    next();
+  },
+
+  tenantMiddleware,
+
+  getMembers
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| ADD ORGANIZATION MEMBER
+|--------------------------------------------------------------------------
+| Only owner/admin can add members.
+|
+| POST /api/organizations/:organizationId/members
+|
+| Body:
+|
+| {
+|   "email": "user@example.com",
+|   "role": "staff"
+| }
+|
+*/
+
+router.post(
+  "/:organizationId/members",
+
+  protect,
+
+  // -------------------------------------
+  // Set organization ID
+  // -------------------------------------
+
+  (req, res, next) => {
+    req.headers["x-organization-id"] =
+      req.params.organizationId;
+
+    next();
+  },
+
+  tenantMiddleware,
+
+  // -------------------------------------
+  // RBAC
+  // -------------------------------------
+
+  authorize(
+    "owner",
+    "admin"
+  ),
+
+  addMember
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| CHANGE MEMBER ROLE
+|--------------------------------------------------------------------------
+| Only owner/admin can change member role.
+|
+| PATCH /api/organizations/:organizationId/members/:memberId/role
+|
+| Body:
+|
+| {
+|   "role": "manager"
+| }
+|
+*/
+
+router.patch(
+  "/:organizationId/members/:memberId/role",
+
+  protect,
+
+  // -------------------------------------
+  // Set organization ID
+  // -------------------------------------
+
+  (req, res, next) => {
+    req.headers["x-organization-id"] =
+      req.params.organizationId;
+
+    next();
+  },
+
+  tenantMiddleware,
+
+  // -------------------------------------
+  // RBAC
+  // -------------------------------------
+
+  authorize(
+    "owner",
+    "admin"
+  ),
+
+  updateMemberRole
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| REMOVE ORGANIZATION MEMBER
+|--------------------------------------------------------------------------
+| Only owner/admin can remove members.
+|
+| DELETE /api/organizations/:organizationId/members/:memberId
+|
+*/
+
+router.delete(
+  "/:organizationId/members/:memberId",
+
+  protect,
+
+  // -------------------------------------
+  // Set organization ID
+  // -------------------------------------
+
+  (req, res, next) => {
+    req.headers["x-organization-id"] =
+      req.params.organizationId;
+
+    next();
+  },
+
+  tenantMiddleware,
+
+  // -------------------------------------
+  // RBAC
+  // -------------------------------------
+
+  authorize(
+    "owner",
+    "admin"
+  ),
+
+  removeMember
 );
 
 
