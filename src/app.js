@@ -137,11 +137,26 @@ const helmet = require("helmet");
 // ROUTE IMPORTS
 // =====================================
 
+// Authentication
 const authRoutes = require("./routes/authRoutes");
+
+// Organization / Business
 const organizationRoutes = require("./routes/organizationRoutes");
+
+// CRM / Leads
 const leadRoutes = require("./routes/leadRoutes");
+
+// Customers
 const customerRoutes = require("./routes/customerRoutes");
+
+// Services
 const serviceRoutes = require("./routes/serviceRoutes");
+
+// Staff
+const staffRoutes = require("./routes/staffRoutes");
+
+// Bookings
+const bookingRoutes = require("./routes/bookingRoutes");
 
 // =====================================
 // APP
@@ -217,6 +232,18 @@ app.use("/api/organizations", customerRoutes);
 // -------------------------------------
 
 app.use("/api/organizations", serviceRoutes);
+
+// -------------------------------------
+// Staff
+// -------------------------------------
+
+app.use("/api/organizations", staffRoutes);
+
+// -------------------------------------
+// Bookings
+// -------------------------------------
+
+app.use("/api/organizations", bookingRoutes);
 
 // =====================================
 // HEALTH CHECK
