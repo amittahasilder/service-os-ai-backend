@@ -3,114 +3,211 @@
 // =====================================
 
 const PERMISSIONS = {
-
-  // ===================================
   // ORGANIZATION
-  // ===================================
-
   ORGANIZATION_VIEW: "organization:view",
   ORGANIZATION_UPDATE: "organization:update",
   ORGANIZATION_DELETE: "organization:delete",
 
-
-  // ===================================
   // LEADS
-  // ===================================
-
   LEAD_CREATE: "lead:create",
   LEAD_VIEW: "lead:view",
   LEAD_UPDATE: "lead:update",
   LEAD_DELETE: "lead:delete",
 
-
-  // ===================================
   // CUSTOMERS
-  // ===================================
-
   CUSTOMER_CREATE: "customer:create",
   CUSTOMER_VIEW: "customer:view",
   CUSTOMER_UPDATE: "customer:update",
   CUSTOMER_DELETE: "customer:delete",
 
-
-  // ===================================
   // SERVICES
-  // ===================================
-
   SERVICE_CREATE: "service:create",
   SERVICE_VIEW: "service:view",
   SERVICE_UPDATE: "service:update",
   SERVICE_DELETE: "service:delete",
 
-
-  // ===================================
   // STAFF
-  // ===================================
-
   STAFF_CREATE: "staff:create",
   STAFF_VIEW: "staff:view",
   STAFF_UPDATE: "staff:update",
   STAFF_DELETE: "staff:delete",
 
-
-  // ===================================
   // BOOKINGS
-  // ===================================
-
   BOOKING_CREATE: "booking:create",
   BOOKING_VIEW: "booking:view",
   BOOKING_UPDATE: "booking:update",
   BOOKING_DELETE: "booking:delete",
 
-
-  // ===================================
   // JOBS
-  // ===================================
-
   JOB_CREATE: "job:create",
   JOB_VIEW: "job:view",
   JOB_UPDATE: "job:update",
   JOB_DELETE: "job:delete",
 
-
-  // ===================================
   // QUOTES
-  // ===================================
-
   QUOTE_CREATE: "quote:create",
   QUOTE_VIEW: "quote:view",
   QUOTE_UPDATE: "quote:update",
   QUOTE_DELETE: "quote:delete",
 
-
-  // ===================================
   // INVOICES
-  // ===================================
-
   INVOICE_CREATE: "invoice:create",
   INVOICE_VIEW: "invoice:view",
   INVOICE_UPDATE: "invoice:update",
   INVOICE_DELETE: "invoice:delete",
 
-
-  // ===================================
   // PAYMENTS
-  // ===================================
-
   PAYMENT_CREATE: "payment:create",
   PAYMENT_VIEW: "payment:view",
 
-
-  // ===================================
   // ANALYTICS
-  // ===================================
-
   ANALYTICS_VIEW: "analytics:view",
 };
 
+// =====================================
+// ROLE PERMISSIONS
+// =====================================
+
+const ROLE_PERMISSIONS = {
+  // OWNER: ALL PERMISSIONS
+  owner: Object.values(PERMISSIONS),
+
+  // ADMIN
+  admin: [
+    PERMISSIONS.ORGANIZATION_VIEW,
+    PERMISSIONS.ORGANIZATION_UPDATE,
+
+    PERMISSIONS.LEAD_CREATE,
+    PERMISSIONS.LEAD_VIEW,
+    PERMISSIONS.LEAD_UPDATE,
+    PERMISSIONS.LEAD_DELETE,
+
+    PERMISSIONS.CUSTOMER_CREATE,
+    PERMISSIONS.CUSTOMER_VIEW,
+    PERMISSIONS.CUSTOMER_UPDATE,
+    PERMISSIONS.CUSTOMER_DELETE,
+
+    PERMISSIONS.SERVICE_CREATE,
+    PERMISSIONS.SERVICE_VIEW,
+    PERMISSIONS.SERVICE_UPDATE,
+    PERMISSIONS.SERVICE_DELETE,
+
+    PERMISSIONS.STAFF_CREATE,
+    PERMISSIONS.STAFF_VIEW,
+    PERMISSIONS.STAFF_UPDATE,
+    PERMISSIONS.STAFF_DELETE,
+
+    PERMISSIONS.BOOKING_CREATE,
+    PERMISSIONS.BOOKING_VIEW,
+    PERMISSIONS.BOOKING_UPDATE,
+    PERMISSIONS.BOOKING_DELETE,
+
+    PERMISSIONS.JOB_CREATE,
+    PERMISSIONS.JOB_VIEW,
+    PERMISSIONS.JOB_UPDATE,
+    PERMISSIONS.JOB_DELETE,
+
+    PERMISSIONS.QUOTE_CREATE,
+    PERMISSIONS.QUOTE_VIEW,
+    PERMISSIONS.QUOTE_UPDATE,
+    PERMISSIONS.QUOTE_DELETE,
+
+    PERMISSIONS.INVOICE_CREATE,
+    PERMISSIONS.INVOICE_VIEW,
+    PERMISSIONS.INVOICE_UPDATE,
+    PERMISSIONS.INVOICE_DELETE,
+
+    PERMISSIONS.PAYMENT_CREATE,
+    PERMISSIONS.PAYMENT_VIEW,
+
+    PERMISSIONS.ANALYTICS_VIEW,
+  ],
+
+  // MANAGER
+  manager: [
+    PERMISSIONS.ORGANIZATION_VIEW,
+
+    PERMISSIONS.LEAD_CREATE,
+    PERMISSIONS.LEAD_VIEW,
+    PERMISSIONS.LEAD_UPDATE,
+
+    PERMISSIONS.CUSTOMER_CREATE,
+    PERMISSIONS.CUSTOMER_VIEW,
+    PERMISSIONS.CUSTOMER_UPDATE,
+
+    PERMISSIONS.SERVICE_CREATE,
+    PERMISSIONS.SERVICE_VIEW,
+    PERMISSIONS.SERVICE_UPDATE,
+
+    PERMISSIONS.STAFF_VIEW,
+
+    PERMISSIONS.BOOKING_CREATE,
+    PERMISSIONS.BOOKING_VIEW,
+    PERMISSIONS.BOOKING_UPDATE,
+
+    PERMISSIONS.JOB_CREATE,
+    PERMISSIONS.JOB_VIEW,
+    PERMISSIONS.JOB_UPDATE,
+
+    PERMISSIONS.QUOTE_CREATE,
+    PERMISSIONS.QUOTE_VIEW,
+    PERMISSIONS.QUOTE_UPDATE,
+
+    PERMISSIONS.INVOICE_CREATE,
+    PERMISSIONS.INVOICE_VIEW,
+    PERMISSIONS.INVOICE_UPDATE,
+
+    PERMISSIONS.PAYMENT_VIEW,
+    PERMISSIONS.ANALYTICS_VIEW,
+  ],
+
+  // STAFF
+  staff: [
+    PERMISSIONS.ORGANIZATION_VIEW,
+
+    PERMISSIONS.LEAD_VIEW,
+
+    PERMISSIONS.CUSTOMER_VIEW,
+
+    PERMISSIONS.SERVICE_VIEW,
+
+    PERMISSIONS.STAFF_VIEW,
+
+    PERMISSIONS.BOOKING_VIEW,
+    PERMISSIONS.BOOKING_UPDATE,
+
+    PERMISSIONS.JOB_VIEW,
+    PERMISSIONS.JOB_UPDATE,
+
+    PERMISSIONS.QUOTE_VIEW,
+
+    PERMISSIONS.INVOICE_VIEW,
+
+    PERMISSIONS.PAYMENT_VIEW,
+  ],
+
+  // VIEWER: READ-ONLY ACCESS
+  viewer: [
+    PERMISSIONS.ORGANIZATION_VIEW,
+
+    PERMISSIONS.LEAD_VIEW,
+    PERMISSIONS.CUSTOMER_VIEW,
+    PERMISSIONS.SERVICE_VIEW,
+    PERMISSIONS.STAFF_VIEW,
+    PERMISSIONS.BOOKING_VIEW,
+    PERMISSIONS.JOB_VIEW,
+    PERMISSIONS.QUOTE_VIEW,
+    PERMISSIONS.INVOICE_VIEW,
+    PERMISSIONS.PAYMENT_VIEW,
+    PERMISSIONS.ANALYTICS_VIEW,
+  ],
+};
 
 // =====================================
 // EXPORT
 // =====================================
 
-module.exports = PERMISSIONS;
+module.exports = {
+  PERMISSIONS,
+  ROLE_PERMISSIONS,
+};
