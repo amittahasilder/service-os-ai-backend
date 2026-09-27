@@ -1,12 +1,151 @@
+// const express = require("express");
+// const cors = require("cors");
+// const cookieParser = require("cookie-parser");
+// const helmet = require("helmet");
+
+// const authRoutes = require("./routes/authRoutes");
+// const organizationRoutes = require("./routes/organizationRoutes");
+// const leadRoutes = require("./routes/leadRoutes");
+// const customerRoutes = require("./routes/customerRoutes");
+
+// const app = express();
+
+// // =====================================
+// // SECURITY
+// // =====================================
+
+// app.use(helmet());
+
+// // =====================================
+// // CORS
+// // =====================================
+
+// app.use(
+//   cors({
+//     origin: "http://localhost:5173",
+//     credentials: true,
+//   })
+// );
+
+// // =====================================
+// // BODY PARSER
+// // =====================================
+
+// app.use(express.json());
+
+// app.use(
+//   express.urlencoded({
+//     extended: true,
+//   })
+// );
+
+// // =====================================
+// // COOKIE
+// // =====================================
+
+// app.use(cookieParser());
+
+// // =====================================
+// // API ROUTES
+// // =====================================
+
+// // -------------------------------------
+// // Authentication
+// // -------------------------------------
+
+// app.use("/api/auth", authRoutes);
+
+// // -------------------------------------
+// // Organizations / Businesses
+// // -------------------------------------
+
+// app.use("/api/organizations", organizationRoutes);
+
+// // -------------------------------------
+// // CRM / Leads
+// // -------------------------------------
+
+// app.use("/api/organizations", leadRoutes);
+
+// // -------------------------------------
+// // Customers
+// // -------------------------------------
+
+// app.use("/api/organizations", customerRoutes);
+
+// // =====================================
+// // HEALTH CHECK
+// // =====================================
+
+// app.get("/api/health", (req, res) => {
+//   res.status(200).json({
+//     success: true,
+//     message: "ServiceOS API is running",
+//     environment: process.env.NODE_ENV || "development",
+//     timestamp: new Date().toISOString(),
+//   });
+// });
+
+// // =====================================
+// // ROOT
+// // =====================================
+
+// app.get("/", (req, res) => {
+//   res.status(200).json({
+//     success: true,
+//     message: "Welcome to ServiceOS API 🚀",
+//   });
+// });
+
+// // =====================================
+// // 404 HANDLER
+// // =====================================
+
+// app.use((req, res) => {
+//   res.status(404).json({
+//     success: false,
+//     message: `Route not found: ${req.method} ${req.originalUrl}`,
+//   });
+// });
+
+// // =====================================
+// // GLOBAL ERROR HANDLER
+// // =====================================
+
+// app.use((err, req, res, next) => {
+//   console.error("❌ GLOBAL ERROR:", err);
+
+//   res.status(err.statusCode || 500).json({
+//     success: false,
+//     message: err.message || "Internal Server Error",
+//   });
+// });
+
+// // =====================================
+// // EXPORT APP
+// // =====================================
+
+// module.exports = app;
+
+
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 
+// =====================================
+// ROUTE IMPORTS
+// =====================================
+
 const authRoutes = require("./routes/authRoutes");
 const organizationRoutes = require("./routes/organizationRoutes");
 const leadRoutes = require("./routes/leadRoutes");
 const customerRoutes = require("./routes/customerRoutes");
+const serviceRoutes = require("./routes/serviceRoutes");
+
+// =====================================
+// APP
+// =====================================
 
 const app = express();
 
@@ -72,6 +211,12 @@ app.use("/api/organizations", leadRoutes);
 // -------------------------------------
 
 app.use("/api/organizations", customerRoutes);
+
+// -------------------------------------
+// Services
+// -------------------------------------
+
+app.use("/api/organizations", serviceRoutes);
 
 // =====================================
 // HEALTH CHECK

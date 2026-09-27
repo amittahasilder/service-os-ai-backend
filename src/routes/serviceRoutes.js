@@ -12,7 +12,9 @@ const {
 const protect = require("../middleware/authMiddleware");
 const tenantMiddleware = require("../middleware/tenantMiddleware");
 const requirePermission = require("../middleware/permissionMiddleware");
-const validate = require("../middleware/validate");
+
+// ✅ Correct middleware filename
+const validate = require("../middleware/validationMiddleware");
 
 const {
   createServiceSchema,
@@ -30,9 +32,7 @@ const router = express.Router();
 // =====================================
 
 const setOrganization = (req, res, next) => {
-  req.headers["x-organization-id"] =
-    req.params.organizationId;
-
+  req.headers["x-organization-id"] = req.params.organizationId;
   next();
 };
 
