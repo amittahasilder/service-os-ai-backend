@@ -158,6 +158,12 @@ const staffRoutes = require("./routes/staffRoutes");
 // Bookings
 const bookingRoutes = require("./routes/bookingRoutes");
 
+// Jobs
+const jobRoutes = require("./routes/jobRoutes");
+
+// Quotes
+const quoteRoutes = require("./routes/quoteRoutes");
+
 // =====================================
 // APP
 // =====================================
@@ -244,6 +250,18 @@ app.use("/api/organizations", staffRoutes);
 // -------------------------------------
 
 app.use("/api/organizations", bookingRoutes);
+
+// -------------------------------------
+// Jobs
+// -------------------------------------
+
+app.use("/api/organizations", jobRoutes);
+
+// -------------------------------------
+// Quotes
+// -------------------------------------
+
+app.use("/api/organizations", quoteRoutes);
 
 // =====================================
 // HEALTH CHECK
