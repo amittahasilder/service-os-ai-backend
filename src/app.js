@@ -128,6 +128,8 @@
 // module.exports = app;
 
 
+
+
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -163,6 +165,12 @@ const jobRoutes = require("./routes/jobRoutes");
 
 // Quotes
 const quoteRoutes = require("./routes/quoteRoutes");
+
+// Invoices
+const invoiceRoutes = require("./routes/invoiceRoutes");
+
+// Payments
+const paymentRoutes = require("./routes/paymentRoutes");
 
 // =====================================
 // APP
@@ -209,59 +217,38 @@ app.use(cookieParser());
 // API ROUTES
 // =====================================
 
-// -------------------------------------
 // Authentication
-// -------------------------------------
-
 app.use("/api/auth", authRoutes);
 
-// -------------------------------------
 // Organizations / Businesses
-// -------------------------------------
-
 app.use("/api/organizations", organizationRoutes);
 
-// -------------------------------------
 // CRM / Leads
-// -------------------------------------
-
 app.use("/api/organizations", leadRoutes);
 
-// -------------------------------------
 // Customers
-// -------------------------------------
-
 app.use("/api/organizations", customerRoutes);
 
-// -------------------------------------
 // Services
-// -------------------------------------
-
 app.use("/api/organizations", serviceRoutes);
 
-// -------------------------------------
 // Staff
-// -------------------------------------
-
 app.use("/api/organizations", staffRoutes);
 
-// -------------------------------------
 // Bookings
-// -------------------------------------
-
 app.use("/api/organizations", bookingRoutes);
 
-// -------------------------------------
 // Jobs
-// -------------------------------------
-
 app.use("/api/organizations", jobRoutes);
 
-// -------------------------------------
 // Quotes
-// -------------------------------------
-
 app.use("/api/organizations", quoteRoutes);
+
+// Invoices
+app.use("/api/organizations", invoiceRoutes);
+
+// Payments
+app.use("/api/organizations", paymentRoutes);
 
 // =====================================
 // HEALTH CHECK
