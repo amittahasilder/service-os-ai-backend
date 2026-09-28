@@ -130,6 +130,7 @@
 
 
 
+
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -171,6 +172,9 @@ const invoiceRoutes = require("./routes/invoiceRoutes");
 
 // Payments
 const paymentRoutes = require("./routes/paymentRoutes");
+
+// Expenses
+const expenseRoutes = require("./routes/expenseRoutes");
 
 // =====================================
 // APP
@@ -249,6 +253,9 @@ app.use("/api/organizations", invoiceRoutes);
 
 // Payments
 app.use("/api/organizations", paymentRoutes);
+
+// Expenses
+app.use("/api/organizations", expenseRoutes);
 
 // =====================================
 // HEALTH CHECK
