@@ -180,6 +180,9 @@ const expenseRoutes = require("./routes/expenseRoutes");
 // Inventory
 const inventoryRoutes = require("./routes/inventoryRoutes");
 
+// Dashboard
+const dashboardRoutes = require("./routes/dashboardRoutes");
+
 // =====================================
 // APP
 // =====================================
@@ -225,44 +228,89 @@ app.use(cookieParser());
 // API ROUTES
 // =====================================
 
+// =====================================
 // Authentication
+// =====================================
+
 app.use("/api/auth", authRoutes);
 
+// =====================================
 // Organizations / Businesses
+// =====================================
+
 app.use("/api/organizations", organizationRoutes);
 
+// =====================================
 // CRM / Leads
+// =====================================
+
 app.use("/api/organizations", leadRoutes);
 
+// =====================================
 // Customers
+// =====================================
+
 app.use("/api/organizations", customerRoutes);
 
+// =====================================
 // Services
+// =====================================
+
 app.use("/api/organizations", serviceRoutes);
 
+// =====================================
 // Staff
+// =====================================
+
 app.use("/api/organizations", staffRoutes);
 
+// =====================================
 // Bookings
+// =====================================
+
 app.use("/api/organizations", bookingRoutes);
 
+// =====================================
 // Jobs
+// =====================================
+
 app.use("/api/organizations", jobRoutes);
 
+// =====================================
 // Quotes
+// =====================================
+
 app.use("/api/organizations", quoteRoutes);
 
+// =====================================
 // Invoices
+// =====================================
+
 app.use("/api/organizations", invoiceRoutes);
 
+// =====================================
 // Payments
+// =====================================
+
 app.use("/api/organizations", paymentRoutes);
 
+// =====================================
 // Expenses
+// =====================================
+
 app.use("/api/organizations", expenseRoutes);
 
+// =====================================
 // Inventory
+// =====================================
+
 app.use("/api/organizations", inventoryRoutes);
+
+// =====================================
+// Dashboard
+// =====================================
+
+app.use("/api/dashboard", dashboardRoutes);
 
 // =====================================
 // HEALTH CHECK
