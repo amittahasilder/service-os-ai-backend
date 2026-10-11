@@ -1,369 +1,350 @@
-const PERMISSIONS = require("./permissions");
+// =====================================
+// SERVICEOS ROLE PERMISSIONS
+// =====================================
 
+const { PERMISSIONS } = require("./permissions");
 
 // =====================================
 // ROLE → PERMISSION MAPPING
-// ServiceOS
 // =====================================
 
 const ROLE_PERMISSIONS = {
-
-  // ===================================
+  // =====================================
   // OWNER
-  // ===================================
-  // Owner gets every permission
-  // defined inside permissions.js
+  // =====================================
+  // Owner gets every available permission
 
   owner: Object.values(PERMISSIONS),
 
-
-  // ===================================
+  // =====================================
   // ADMIN
-  // ===================================
+  // =====================================
 
   admin: [
-
-    // ---------------------------------
-    // ORGANIZATION
-    // ---------------------------------
-
+    // Organization
     PERMISSIONS.ORGANIZATION_VIEW,
     PERMISSIONS.ORGANIZATION_UPDATE,
+    PERMISSIONS.ORGANIZATION_MANAGE_MEMBERS,
 
-
-    // ---------------------------------
-    // LEADS
-    // ---------------------------------
-
+    // Leads
     PERMISSIONS.LEAD_CREATE,
     PERMISSIONS.LEAD_VIEW,
     PERMISSIONS.LEAD_UPDATE,
     PERMISSIONS.LEAD_DELETE,
 
-
-    // ---------------------------------
-    // CUSTOMERS
-    // ---------------------------------
-
+    // Customers
     PERMISSIONS.CUSTOMER_CREATE,
     PERMISSIONS.CUSTOMER_VIEW,
     PERMISSIONS.CUSTOMER_UPDATE,
     PERMISSIONS.CUSTOMER_DELETE,
 
-
-    // ---------------------------------
-    // SERVICES
-    // ---------------------------------
-
+    // Services
     PERMISSIONS.SERVICE_CREATE,
     PERMISSIONS.SERVICE_VIEW,
     PERMISSIONS.SERVICE_UPDATE,
     PERMISSIONS.SERVICE_DELETE,
 
-
-    // ---------------------------------
-    // STAFF
-    // ---------------------------------
-
+    // Staff
     PERMISSIONS.STAFF_CREATE,
     PERMISSIONS.STAFF_VIEW,
     PERMISSIONS.STAFF_UPDATE,
     PERMISSIONS.STAFF_DELETE,
 
-
-    // ---------------------------------
-    // BOOKINGS
-    // ---------------------------------
-
+    // Bookings
     PERMISSIONS.BOOKING_CREATE,
     PERMISSIONS.BOOKING_VIEW,
     PERMISSIONS.BOOKING_UPDATE,
     PERMISSIONS.BOOKING_DELETE,
 
-
-    // ---------------------------------
-    // JOBS
-    // ---------------------------------
-
+    // Jobs
     PERMISSIONS.JOB_CREATE,
     PERMISSIONS.JOB_VIEW,
     PERMISSIONS.JOB_UPDATE,
     PERMISSIONS.JOB_DELETE,
 
-
-    // ---------------------------------
-    // QUOTES
-    // ---------------------------------
-
+    // Quotes
     PERMISSIONS.QUOTE_CREATE,
     PERMISSIONS.QUOTE_VIEW,
     PERMISSIONS.QUOTE_UPDATE,
     PERMISSIONS.QUOTE_DELETE,
 
-
-    // ---------------------------------
-    // INVOICES
-    // ---------------------------------
-
+    // Invoices
     PERMISSIONS.INVOICE_CREATE,
     PERMISSIONS.INVOICE_VIEW,
     PERMISSIONS.INVOICE_UPDATE,
     PERMISSIONS.INVOICE_DELETE,
 
-
-    // ---------------------------------
-    // PAYMENTS
-    // ---------------------------------
-
+    // Payments
     PERMISSIONS.PAYMENT_CREATE,
     PERMISSIONS.PAYMENT_VIEW,
+    PERMISSIONS.PAYMENT_UPDATE,
+    PERMISSIONS.PAYMENT_REFUND,
 
+    // Expenses
+    PERMISSIONS.EXPENSE_CREATE,
+    PERMISSIONS.EXPENSE_VIEW,
+    PERMISSIONS.EXPENSE_UPDATE,
+    PERMISSIONS.EXPENSE_DELETE,
 
-    // ---------------------------------
-    // ANALYTICS
-    // ---------------------------------
+    // Inventory
+    PERMISSIONS.INVENTORY_CREATE,
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_UPDATE,
+    PERMISSIONS.INVENTORY_DELETE,
 
+    // Notifications
+    PERMISSIONS.NOTIFICATION_CREATE,
+    PERMISSIONS.NOTIFICATION_VIEW,
+    PERMISSIONS.NOTIFICATION_UPDATE,
+    PERMISSIONS.NOTIFICATION_DELETE,
+
+    // Communication
+    PERMISSIONS.COMMUNICATION_SEND,
+    PERMISSIONS.COMMUNICATION_VIEW,
+
+    // Reviews
+    PERMISSIONS.REVIEW_CREATE,
+    PERMISSIONS.REVIEW_VIEW,
+    PERMISSIONS.REVIEW_UPDATE,
+    PERMISSIONS.REVIEW_DELETE,
+
+    // Customer Portal
+    PERMISSIONS.CUSTOMER_PORTAL_VIEW,
+    PERMISSIONS.CUSTOMER_PORTAL_MANAGE,
+
+    // Dashboard
+    PERMISSIONS.DASHBOARD_VIEW,
+
+    // Analytics
     PERMISSIONS.ANALYTICS_VIEW,
+
+    // AI Assistant
+    PERMISSIONS.AI_ASSISTANT_USE,
+    PERMISSIONS.AI_ASSISTANT_VIEW,
+
+    // AI Automation
+    PERMISSIONS.AI_AUTOMATION_CREATE,
+    PERMISSIONS.AI_AUTOMATION_VIEW,
+    PERMISSIONS.AI_AUTOMATION_UPDATE,
+    PERMISSIONS.AI_AUTOMATION_DELETE,
+
+    // Subscription
+    PERMISSIONS.SUBSCRIPTION_VIEW,
+    PERMISSIONS.SUBSCRIPTION_MANAGE,
+
+    // Audit Logs
+    PERMISSIONS.AUDIT_LOG_VIEW,
+
+    // Security
+    PERMISSIONS.SECURITY_VIEW,
+    PERMISSIONS.SECURITY_MANAGE,
   ],
 
-
-  // ===================================
+  // =====================================
   // MANAGER
-  // ===================================
+  // =====================================
 
   manager: [
-
-    // ---------------------------------
-    // ORGANIZATION
-    // ---------------------------------
-
+    // Organization
     PERMISSIONS.ORGANIZATION_VIEW,
 
-
-    // ---------------------------------
-    // LEADS
-    // ---------------------------------
-
+    // Leads
     PERMISSIONS.LEAD_CREATE,
     PERMISSIONS.LEAD_VIEW,
     PERMISSIONS.LEAD_UPDATE,
 
-
-    // ---------------------------------
-    // CUSTOMERS
-    // ---------------------------------
-
+    // Customers
     PERMISSIONS.CUSTOMER_CREATE,
     PERMISSIONS.CUSTOMER_VIEW,
     PERMISSIONS.CUSTOMER_UPDATE,
 
-
-    // ---------------------------------
-    // SERVICES
-    // ---------------------------------
-
+    // Services
+    PERMISSIONS.SERVICE_CREATE,
     PERMISSIONS.SERVICE_VIEW,
+    PERMISSIONS.SERVICE_UPDATE,
 
-
-    // ---------------------------------
-    // STAFF
-    // ---------------------------------
-
+    // Staff
     PERMISSIONS.STAFF_VIEW,
+    PERMISSIONS.STAFF_UPDATE,
 
-
-    // ---------------------------------
-    // BOOKINGS
-    // ---------------------------------
-
+    // Bookings
     PERMISSIONS.BOOKING_CREATE,
     PERMISSIONS.BOOKING_VIEW,
     PERMISSIONS.BOOKING_UPDATE,
 
-
-    // ---------------------------------
-    // JOBS
-    // ---------------------------------
-
+    // Jobs
     PERMISSIONS.JOB_CREATE,
     PERMISSIONS.JOB_VIEW,
     PERMISSIONS.JOB_UPDATE,
 
-
-    // ---------------------------------
-    // QUOTES
-    // ---------------------------------
-
+    // Quotes
     PERMISSIONS.QUOTE_CREATE,
     PERMISSIONS.QUOTE_VIEW,
     PERMISSIONS.QUOTE_UPDATE,
 
-
-    // ---------------------------------
-    // INVOICES
-    // ---------------------------------
-
+    // Invoices
+    PERMISSIONS.INVOICE_CREATE,
     PERMISSIONS.INVOICE_VIEW,
+    PERMISSIONS.INVOICE_UPDATE,
 
-
-    // ---------------------------------
-    // PAYMENTS
-    // ---------------------------------
-
+    // Payments
     PERMISSIONS.PAYMENT_VIEW,
 
+    // Expenses
+    PERMISSIONS.EXPENSE_CREATE,
+    PERMISSIONS.EXPENSE_VIEW,
+    PERMISSIONS.EXPENSE_UPDATE,
 
-    // ---------------------------------
-    // ANALYTICS
-    // ---------------------------------
+    // Inventory
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_UPDATE,
 
+    // Notifications
+    PERMISSIONS.NOTIFICATION_CREATE,
+    PERMISSIONS.NOTIFICATION_VIEW,
+
+    // Communication
+    PERMISSIONS.COMMUNICATION_SEND,
+    PERMISSIONS.COMMUNICATION_VIEW,
+
+    // Reviews
+    PERMISSIONS.REVIEW_VIEW,
+    PERMISSIONS.REVIEW_UPDATE,
+
+    // Customer Portal
+    PERMISSIONS.CUSTOMER_PORTAL_VIEW,
+
+    // Dashboard
+    PERMISSIONS.DASHBOARD_VIEW,
+
+    // Analytics
     PERMISSIONS.ANALYTICS_VIEW,
+
+    // AI Assistant
+    PERMISSIONS.AI_ASSISTANT_USE,
+    PERMISSIONS.AI_ASSISTANT_VIEW,
   ],
 
-
-  // ===================================
+  // =====================================
   // STAFF
-  // ===================================
+  // =====================================
 
   staff: [
+    // Organization
+    PERMISSIONS.ORGANIZATION_VIEW,
 
-    // ---------------------------------
-    // LEADS
-    // ---------------------------------
-
+    // Leads
     PERMISSIONS.LEAD_VIEW,
     PERMISSIONS.LEAD_UPDATE,
 
-
-    // ---------------------------------
-    // CUSTOMERS
-    // ---------------------------------
-
+    // Customers
     PERMISSIONS.CUSTOMER_VIEW,
 
-
-    // ---------------------------------
-    // SERVICES
-    // ---------------------------------
-
+    // Services
     PERMISSIONS.SERVICE_VIEW,
 
+    // Staff
+    PERMISSIONS.STAFF_VIEW,
 
-    // ---------------------------------
-    // BOOKINGS
-    // ---------------------------------
-
+    // Bookings
     PERMISSIONS.BOOKING_VIEW,
     PERMISSIONS.BOOKING_UPDATE,
 
-
-    // ---------------------------------
-    // JOBS
-    // ---------------------------------
-
+    // Jobs
     PERMISSIONS.JOB_VIEW,
     PERMISSIONS.JOB_UPDATE,
 
-
-    // ---------------------------------
-    // QUOTES
-    // ---------------------------------
-
+    // Quotes
     PERMISSIONS.QUOTE_VIEW,
 
-
-    // ---------------------------------
-    // INVOICES
-    // ---------------------------------
-
-    PERMISSIONS.INVOICE_VIEW,
-  ],
-
-
-  // ===================================
-  // VIEWER
-  // ===================================
-
-  viewer: [
-
-    // ---------------------------------
-    // ORGANIZATION
-    // ---------------------------------
-
-    PERMISSIONS.ORGANIZATION_VIEW,
-
-
-    // ---------------------------------
-    // LEADS
-    // ---------------------------------
-
-    PERMISSIONS.LEAD_VIEW,
-
-
-    // ---------------------------------
-    // CUSTOMERS
-    // ---------------------------------
-
-    PERMISSIONS.CUSTOMER_VIEW,
-
-
-    // ---------------------------------
-    // SERVICES
-    // ---------------------------------
-
-    PERMISSIONS.SERVICE_VIEW,
-
-
-    // ---------------------------------
-    // STAFF
-    // ---------------------------------
-
-    PERMISSIONS.STAFF_VIEW,
-
-
-    // ---------------------------------
-    // BOOKINGS
-    // ---------------------------------
-
-    PERMISSIONS.BOOKING_VIEW,
-
-
-    // ---------------------------------
-    // JOBS
-    // ---------------------------------
-
-    PERMISSIONS.JOB_VIEW,
-
-
-    // ---------------------------------
-    // QUOTES
-    // ---------------------------------
-
-    PERMISSIONS.QUOTE_VIEW,
-
-
-    // ---------------------------------
-    // INVOICES
-    // ---------------------------------
-
+    // Invoices
     PERMISSIONS.INVOICE_VIEW,
 
-
-    // ---------------------------------
-    // PAYMENTS
-    // ---------------------------------
-
+    // Payments
     PERMISSIONS.PAYMENT_VIEW,
 
+    // Inventory
+    PERMISSIONS.INVENTORY_VIEW,
 
-    // ---------------------------------
-    // ANALYTICS
-    // ---------------------------------
+    // Reviews
+    PERMISSIONS.REVIEW_VIEW,
 
+    // Dashboard
+    PERMISSIONS.DASHBOARD_VIEW,
+
+    // AI Assistant
+    PERMISSIONS.AI_ASSISTANT_USE,
+  ],
+
+  // =====================================
+  // VIEWER
+  // =====================================
+
+  viewer: [
+    // Organization
+    PERMISSIONS.ORGANIZATION_VIEW,
+
+    // Leads
+    PERMISSIONS.LEAD_VIEW,
+
+    // Customers
+    PERMISSIONS.CUSTOMER_VIEW,
+
+    // Services
+    PERMISSIONS.SERVICE_VIEW,
+
+    // Staff
+    PERMISSIONS.STAFF_VIEW,
+
+    // Bookings
+    PERMISSIONS.BOOKING_VIEW,
+
+    // Jobs
+    PERMISSIONS.JOB_VIEW,
+
+    // Quotes
+    PERMISSIONS.QUOTE_VIEW,
+
+    // Invoices
+    PERMISSIONS.INVOICE_VIEW,
+
+    // Payments
+    PERMISSIONS.PAYMENT_VIEW,
+
+    // Expenses
+    PERMISSIONS.EXPENSE_VIEW,
+
+    // Inventory
+    PERMISSIONS.INVENTORY_VIEW,
+
+    // Notifications
+    PERMISSIONS.NOTIFICATION_VIEW,
+
+    // Communication
+    PERMISSIONS.COMMUNICATION_VIEW,
+
+    // Reviews
+    PERMISSIONS.REVIEW_VIEW,
+
+    // Customer Portal
+    PERMISSIONS.CUSTOMER_PORTAL_VIEW,
+
+    // Dashboard
+    PERMISSIONS.DASHBOARD_VIEW,
+
+    // Analytics
     PERMISSIONS.ANALYTICS_VIEW,
+
+    // AI Assistant
+    PERMISSIONS.AI_ASSISTANT_VIEW,
+
+    // Subscription
+    PERMISSIONS.SUBSCRIPTION_VIEW,
+
+    // Audit Logs
+    PERMISSIONS.AUDIT_LOG_VIEW,
   ],
 };
-
 
 // =====================================
 // EXPORT

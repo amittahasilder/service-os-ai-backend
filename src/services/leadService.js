@@ -1,6 +1,59 @@
+const mongoose = require("mongoose");
+
 const Lead = require("../models/Lead");
 const User = require("../models/User");
 
+// =====================================
+// HELPER
+// =====================================
+
+const normalizeObjectId = (
+  value,
+  fieldName
+) => {
+  if (!value) {
+    const error = new Error(
+      `${fieldName} is required.`
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  // ---------------------------------
+  // Handle Object
+  // ---------------------------------
+
+  if (
+    typeof value === "object" &&
+    value._id
+  ) {
+    value = value._id;
+  }
+
+  // ---------------------------------
+  // Validate
+  // ---------------------------------
+
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      value
+    )
+  ) {
+    const error = new Error(
+      `Invalid ${fieldName}.`
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  return new mongoose.Types.ObjectId(
+    value
+  );
+};
 
 // =====================================
 // CREATE LEAD
@@ -20,16 +73,43 @@ const createLead = async ({
   assignedTo,
   nextFollowUpAt,
 }) => {
-  // -------------------------------------
-  // Validate assigned user
-  // -------------------------------------
+  // ---------------------------------
+  // Normalize IDs
+  // ---------------------------------
+
+  const organizationObjectId =
+    normalizeObjectId(
+      organizationId,
+      "organization ID"
+    );
+
+  const userObjectId =
+    normalizeObjectId(
+      userId,
+      "user ID"
+    );
+
+  // ---------------------------------
+  // Validate Assigned User
+  // ---------------------------------
+
+  let assignedUserId = null;
 
   if (assignedTo) {
-    const user = await User.findById(assignedTo);
+    assignedUserId =
+      normalizeObjectId(
+        assignedTo,
+        "assigned user ID"
+      );
+
+    const user =
+      await User.findById(
+        assignedUserId
+      );
 
     if (!user) {
       const error = new Error(
-        "Assigned user not found"
+        "Assigned user not found."
       );
 
       error.statusCode = 404;
@@ -38,43 +118,57 @@ const createLead = async ({
     }
   }
 
-  // -------------------------------------
+  // ---------------------------------
   // Create Lead
-  // -------------------------------------
+  // ---------------------------------
 
-  const lead = await Lead.create({
-    organization: organizationId,
+  const lead =
+    await Lead.create({
+      organization:
+        organizationObjectId,
 
-    name,
-    email,
-    phone,
-    company,
+      name,
 
-    source: source || "other",
+      email:
+        email || undefined,
 
-    priority: priority || "medium",
+      phone:
+        phone || undefined,
 
-    estimatedValue:
-      estimatedValue || 0,
+      company:
+        company || undefined,
 
-    notes,
+      source:
+        source || "other",
 
-    assignedTo:
-      assignedTo || null,
+      priority:
+        priority || "medium",
 
-    nextFollowUpAt:
-      nextFollowUpAt || null,
+      estimatedValue:
+        estimatedValue !== undefined &&
+        estimatedValue !== null
+          ? Number(estimatedValue)
+          : 0,
 
-    createdBy: userId,
+      notes:
+        notes || undefined,
 
-    status: "new",
+      assignedTo:
+        assignedUserId,
 
-    isActive: true,
-  });
+      nextFollowUpAt:
+        nextFollowUpAt || null,
+
+      createdBy:
+        userObjectId,
+
+      status: "new",
+
+      isActive: true,
+    });
 
   return lead;
 };
-
 
 // =====================================
 // GET ALL LEADS
@@ -88,110 +182,128 @@ const getOrganizationLeads = async ({
   assignedTo,
   search,
 }) => {
-  // -------------------------------------
+  const organizationObjectId =
+    normalizeObjectId(
+      organizationId,
+      "organization ID"
+    );
+
+  // ---------------------------------
   // Base Query
-  // -------------------------------------
+  // ---------------------------------
 
   const query = {
-    organization: organizationId,
+    organization:
+      organizationObjectId,
+
     isActive: true,
   };
 
-
-  // -------------------------------------
-  // Status Filter
-  // -------------------------------------
+  // ---------------------------------
+  // Status
+  // ---------------------------------
 
   if (status) {
     query.status = status;
   }
 
-
-  // -------------------------------------
-  // Source Filter
-  // -------------------------------------
+  // ---------------------------------
+  // Source
+  // ---------------------------------
 
   if (source) {
     query.source = source;
   }
 
-
-  // -------------------------------------
-  // Priority Filter
-  // -------------------------------------
+  // ---------------------------------
+  // Priority
+  // ---------------------------------
 
   if (priority) {
     query.priority = priority;
   }
 
-
-  // -------------------------------------
-  // Assigned User Filter
-  // -------------------------------------
+  // ---------------------------------
+  // Assigned User
+  // ---------------------------------
 
   if (assignedTo) {
-    query.assignedTo = assignedTo;
+    query.assignedTo =
+      normalizeObjectId(
+        assignedTo,
+        "assigned user ID"
+      );
   }
 
-
-  // -------------------------------------
+  // ---------------------------------
   // Search
-  // -------------------------------------
+  // ---------------------------------
 
   if (search) {
-    query.$or = [
-      {
-        name: {
-          $regex: search,
-          $options: "i",
+    const safeSearch =
+      String(search).trim();
+
+    if (safeSearch) {
+      query.$or = [
+        {
+          name: {
+            $regex: safeSearch,
+            $options: "i",
+          },
         },
-      },
-      {
-        email: {
-          $regex: search,
-          $options: "i",
+
+        {
+          email: {
+            $regex: safeSearch,
+            $options: "i",
+          },
         },
-      },
-      {
-        phone: {
-          $regex: search,
-          $options: "i",
+
+        {
+          phone: {
+            $regex: safeSearch,
+            $options: "i",
+          },
         },
-      },
-      {
-        company: {
-          $regex: search,
-          $options: "i",
+
+        {
+          company: {
+            $regex: safeSearch,
+            $options: "i",
+          },
         },
-      },
-    ];
+      ];
+    }
   }
 
-
-  // -------------------------------------
+  // ---------------------------------
   // Fetch Leads
-  // -------------------------------------
+  // ---------------------------------
 
-  const leads = await Lead.find(query)
-    .populate({
-      path: "assignedTo",
-      select: "name email avatar",
-    })
-    .populate({
-      path: "createdBy",
-      select: "name email",
-    })
-    .populate({
-      path: "convertedToCustomer",
-      select: "name email phone",
-    })
-    .sort({
-      createdAt: -1,
-    });
+  const leads =
+    await Lead.find(query)
+      .populate({
+        path: "assignedTo",
+        select:
+          "name email avatar",
+      })
+      .populate({
+        path: "createdBy",
+        select:
+          "name email",
+      })
+      .populate({
+        path:
+          "convertedToCustomer",
+        select:
+          "name email phone",
+      })
+      .sort({
+        createdAt: -1,
+      });
 
   return leads;
 };
-
 
 // =====================================
 // GET SINGLE LEAD
@@ -201,31 +313,55 @@ const getLeadById = async ({
   organizationId,
   leadId,
 }) => {
-  const lead = await Lead.findOne({
-    _id: leadId,
-
-    organization:
+  const organizationObjectId =
+    normalizeObjectId(
       organizationId,
+      "organization ID"
+    );
 
-    isActive: true,
-  })
-    .populate({
-      path: "assignedTo",
-      select: "name email avatar",
-    })
-    .populate({
-      path: "createdBy",
-      select: "name email",
-    })
-    .populate({
-      path: "convertedToCustomer",
-      select: "name email phone",
-    });
+  const leadObjectId =
+    normalizeObjectId(
+      leadId,
+      "lead ID"
+    );
 
+  // ---------------------------------
+  // Find
+  // ---------------------------------
+
+  const lead =
+    await Lead.findOne({
+      _id: leadObjectId,
+
+      organization:
+        organizationObjectId,
+
+      isActive: true,
+    })
+      .populate({
+        path: "assignedTo",
+        select:
+          "name email avatar",
+      })
+      .populate({
+        path: "createdBy",
+        select:
+          "name email",
+      })
+      .populate({
+        path:
+          "convertedToCustomer",
+        select:
+          "name email phone",
+      });
+
+  // ---------------------------------
+  // Not Found
+  // ---------------------------------
 
   if (!lead) {
     const error = new Error(
-      "Lead not found"
+      "Lead not found."
     );
 
     error.statusCode = 404;
@@ -233,10 +369,8 @@ const getLeadById = async ({
     throw error;
   }
 
-
   return lead;
 };
-
 
 // =====================================
 // UPDATE LEAD
@@ -247,19 +381,35 @@ const updateLead = async ({
   leadId,
   updateData,
 }) => {
-  const lead = await Lead.findOne({
-    _id: leadId,
-
-    organization:
+  const organizationObjectId =
+    normalizeObjectId(
       organizationId,
+      "organization ID"
+    );
 
-    isActive: true,
-  });
+  const leadObjectId =
+    normalizeObjectId(
+      leadId,
+      "lead ID"
+    );
 
+  // ---------------------------------
+  // Find Lead
+  // ---------------------------------
+
+  const lead =
+    await Lead.findOne({
+      _id: leadObjectId,
+
+      organization:
+        organizationObjectId,
+
+      isActive: true,
+    });
 
   if (!lead) {
     const error = new Error(
-      "Lead not found"
+      "Lead not found."
     );
 
     error.statusCode = 404;
@@ -267,33 +417,51 @@ const updateLead = async ({
     throw error;
   }
 
-
-  // -------------------------------------
-  // Validate assigned user
-  // -------------------------------------
+  // ---------------------------------
+  // Validate Assigned User
+  // ---------------------------------
 
   if (
-    updateData.assignedTo
+    updateData.assignedTo !==
+    undefined
   ) {
-    const user = await User.findById(
-      updateData.assignedTo
-    );
+    if (
+      updateData.assignedTo ===
+        null ||
+      updateData.assignedTo === ""
+    ) {
+      updateData.assignedTo =
+        null;
+    } else {
+      const assignedUserId =
+        normalizeObjectId(
+          updateData.assignedTo,
+          "assigned user ID"
+        );
 
-    if (!user) {
-      const error = new Error(
-        "Assigned user not found"
-      );
+      const user =
+        await User.findById(
+          assignedUserId
+        );
 
-      error.statusCode = 404;
+      if (!user) {
+        const error = new Error(
+          "Assigned user not found."
+        );
 
-      throw error;
+        error.statusCode = 404;
+
+        throw error;
+      }
+
+      updateData.assignedTo =
+        assignedUserId;
     }
   }
 
-
-  // -------------------------------------
+  // ---------------------------------
   // Update
-  // -------------------------------------
+  // ---------------------------------
 
   Object.assign(
     lead,
@@ -305,7 +473,6 @@ const updateLead = async ({
   return lead;
 };
 
-
 // =====================================
 // CHANGE LEAD STATUS
 // =====================================
@@ -315,19 +482,35 @@ const changeLeadStatus = async ({
   leadId,
   status,
 }) => {
-  const lead = await Lead.findOne({
-    _id: leadId,
-
-    organization:
+  const organizationObjectId =
+    normalizeObjectId(
       organizationId,
+      "organization ID"
+    );
 
-    isActive: true,
-  });
+  const leadObjectId =
+    normalizeObjectId(
+      leadId,
+      "lead ID"
+    );
 
+  // ---------------------------------
+  // Find Lead
+  // ---------------------------------
+
+  const lead =
+    await Lead.findOne({
+      _id: leadObjectId,
+
+      organization:
+        organizationObjectId,
+
+      isActive: true,
+    });
 
   if (!lead) {
     const error = new Error(
-      "Lead not found"
+      "Lead not found."
     );
 
     error.statusCode = 404;
@@ -335,6 +518,9 @@ const changeLeadStatus = async ({
     throw error;
   }
 
+  // ---------------------------------
+  // Update Status
+  // ---------------------------------
 
   lead.status = status;
 
@@ -342,7 +528,6 @@ const changeLeadStatus = async ({
 
   return lead;
 };
-
 
 // =====================================
 // DELETE / ARCHIVE LEAD
@@ -352,19 +537,35 @@ const deleteLead = async ({
   organizationId,
   leadId,
 }) => {
-  const lead = await Lead.findOne({
-    _id: leadId,
-
-    organization:
+  const organizationObjectId =
+    normalizeObjectId(
       organizationId,
+      "organization ID"
+    );
 
-    isActive: true,
-  });
+  const leadObjectId =
+    normalizeObjectId(
+      leadId,
+      "lead ID"
+    );
 
+  // ---------------------------------
+  // Find Lead
+  // ---------------------------------
+
+  const lead =
+    await Lead.findOne({
+      _id: leadObjectId,
+
+      organization:
+        organizationObjectId,
+
+      isActive: true,
+    });
 
   if (!lead) {
     const error = new Error(
-      "Lead not found"
+      "Lead not found."
     );
 
     error.statusCode = 404;
@@ -372,10 +573,9 @@ const deleteLead = async ({
     throw error;
   }
 
-
-  // -------------------------------------
+  // ---------------------------------
   // Soft Delete
-  // -------------------------------------
+  // ---------------------------------
 
   lead.isActive = false;
 
@@ -384,7 +584,6 @@ const deleteLead = async ({
   return lead;
 };
 
-
 // =====================================
 // LEAD STATISTICS
 // =====================================
@@ -392,12 +591,22 @@ const deleteLead = async ({
 const getLeadStats = async (
   organizationId
 ) => {
+  const organizationObjectId =
+    normalizeObjectId(
+      organizationId,
+      "organization ID"
+    );
+
+  // ---------------------------------
+  // Aggregate
+  // ---------------------------------
+
   const stats =
     await Lead.aggregate([
       {
         $match: {
           organization:
-            organizationId,
+            organizationObjectId,
 
           isActive: true,
         },
@@ -412,7 +621,8 @@ const getLeadStats = async (
           },
 
           totalEstimatedValue: {
-            $sum: "$estimatedValue",
+            $sum:
+              "$estimatedValue",
           },
         },
       },
@@ -424,10 +634,8 @@ const getLeadStats = async (
       },
     ]);
 
-
   return stats;
 };
-
 
 // =====================================
 // EXPORT

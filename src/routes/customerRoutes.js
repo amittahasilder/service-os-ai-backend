@@ -22,11 +22,8 @@ const {
 // =====================================
 
 const protect = require("../middleware/authMiddleware");
-
 const tenantMiddleware = require("../middleware/tenantMiddleware");
-
 const requirePermission = require("../middleware/permissionMiddleware");
-
 const validate = require("../middleware/validationMiddleware");
 
 // =====================================
@@ -50,24 +47,12 @@ const {
 } = require("../validations/customerValidation");
 
 // =====================================
-// ORGANIZATION MIDDLEWARE
-// =====================================
-
-const setOrganization = (req, res, next) => {
-  req.headers["x-organization-id"] =
-    req.params.organizationId;
-
-  next();
-};
-
-// =====================================
 // CUSTOMER STATISTICS
 // =====================================
 
 router.get(
   "/:organizationId/customers/stats",
   protect,
-  setOrganization,
   tenantMiddleware,
   requirePermission(CUSTOMER_VIEW),
   customerStats
@@ -80,7 +65,6 @@ router.get(
 router.post(
   "/:organizationId/leads/:leadId/convert",
   protect,
-  setOrganization,
   tenantMiddleware,
   requirePermission(CUSTOMER_CREATE),
   convertLead
@@ -93,7 +77,6 @@ router.post(
 router.get(
   "/:organizationId/customers",
   protect,
-  setOrganization,
   tenantMiddleware,
   requirePermission(CUSTOMER_VIEW),
   getCustomers
@@ -106,7 +89,6 @@ router.get(
 router.post(
   "/:organizationId/customers",
   protect,
-  setOrganization,
   tenantMiddleware,
   requirePermission(CUSTOMER_CREATE),
   validate(createCustomerSchema),
@@ -120,7 +102,6 @@ router.post(
 router.get(
   "/:organizationId/customers/:customerId",
   protect,
-  setOrganization,
   tenantMiddleware,
   requirePermission(CUSTOMER_VIEW),
   getCustomer
@@ -133,7 +114,6 @@ router.get(
 router.put(
   "/:organizationId/customers/:customerId",
   protect,
-  setOrganization,
   tenantMiddleware,
   requirePermission(CUSTOMER_UPDATE),
   validate(updateCustomerSchema),
@@ -147,7 +127,6 @@ router.put(
 router.delete(
   "/:organizationId/customers/:customerId",
   protect,
-  setOrganization,
   tenantMiddleware,
   requirePermission(CUSTOMER_DELETE),
   removeCustomer
@@ -158,3 +137,4 @@ router.delete(
 // =====================================
 
 module.exports = router;
+

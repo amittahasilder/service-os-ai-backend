@@ -1,3 +1,5 @@
+const mongoose = require("mongoose");
+
 const {
   createLead,
   getOrganizationLeads,
@@ -8,6 +10,41 @@ const {
   getLeadStats,
 } = require("../services/leadService");
 
+// =====================================
+// HELPER
+// =====================================
+
+const getOrganizationId = (req) => {
+  const organizationId = req.organizationId;
+
+  if (!organizationId) {
+    const error = new Error(
+      "Organization context is missing."
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      organizationId
+    )
+  ) {
+    const error = new Error(
+      "Invalid organization ID."
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  return new mongoose.Types.ObjectId(
+    organizationId
+  );
+};
 
 // =====================================
 // CREATE LEAD
@@ -19,6 +56,33 @@ const createLeadController = async (
   next
 ) => {
   try {
+    // ---------------------------------
+    // Organization
+    // ---------------------------------
+
+    const organizationId =
+      getOrganizationId(req);
+
+    // ---------------------------------
+    // User
+    // ---------------------------------
+
+    if (!req.user?._id) {
+      const error = new Error(
+        "Authenticated user not found."
+      );
+
+      error.statusCode = 401;
+
+      throw error;
+    }
+
+    const userId = req.user._id;
+
+    // ---------------------------------
+    // Request Body
+    // ---------------------------------
+
     const {
       name,
       email,
@@ -32,10 +96,9 @@ const createLeadController = async (
       nextFollowUpAt,
     } = req.body;
 
-
-    // -------------------------------------
+    // ---------------------------------
     // Basic Validation
-    // -------------------------------------
+    // ---------------------------------
 
     if (
       !name ||
@@ -43,7 +106,7 @@ const createLeadController = async (
       !name.trim()
     ) {
       const error = new Error(
-        "Lead name is required"
+        "Lead name is required."
       );
 
       error.statusCode = 400;
@@ -51,45 +114,49 @@ const createLeadController = async (
       throw error;
     }
 
-
-    // -------------------------------------
+    // ---------------------------------
     // Create Lead
-    // -------------------------------------
+    // ---------------------------------
 
     const lead = await createLead({
-      organizationId:
-        req.organizationId,
-
-      userId:
-        req.user._id,
+      organizationId,
+      userId,
 
       name: name.trim(),
 
       email:
-        email?.trim(),
+        typeof email === "string"
+          ? email.trim()
+          : email,
 
       phone:
-        phone?.trim(),
+        typeof phone === "string"
+          ? phone.trim()
+          : phone,
 
       company:
-        company?.trim(),
+        typeof company === "string"
+          ? company.trim()
+          : company,
 
       source,
-
       priority,
-
       estimatedValue,
 
       notes:
-        notes?.trim(),
+        typeof notes === "string"
+          ? notes.trim()
+          : notes,
 
       assignedTo,
-
       nextFollowUpAt,
     });
 
+    // ---------------------------------
+    // Response
+    // ---------------------------------
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
 
       message:
@@ -104,7 +171,6 @@ const createLeadController = async (
   }
 };
 
-
 // =====================================
 // GET ALL LEADS
 // =====================================
@@ -115,6 +181,9 @@ const getLeads = async (
   next
 ) => {
   try {
+    const organizationId =
+      getOrganizationId(req);
+
     const {
       status,
       source,
@@ -123,25 +192,26 @@ const getLeads = async (
       search,
     } = req.query;
 
+    // ---------------------------------
+    // Get Leads
+    // ---------------------------------
 
     const leads =
       await getOrganizationLeads({
-        organizationId:
-          req.organizationId,
+        organizationId,
 
         status,
-
         source,
-
         priority,
-
         assignedTo,
-
         search,
       });
 
+    // ---------------------------------
+    // Response
+    // ---------------------------------
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
 
       message:
@@ -150,15 +220,13 @@ const getLeads = async (
       data: {
         leads,
 
-        count:
-          leads.length,
+        count: leads.length,
       },
     });
   } catch (error) {
     next(error);
   }
 };
-
 
 // =====================================
 // GET SINGLE LEAD
@@ -170,21 +238,45 @@ const getLead = async (
   next
 ) => {
   try {
-    const {
-      leadId,
-    } = req.params;
+    const organizationId =
+      getOrganizationId(req);
 
+    const { leadId } =
+      req.params;
+
+    // ---------------------------------
+    // Validate Lead ID
+    // ---------------------------------
+
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        leadId
+      )
+    ) {
+      const error = new Error(
+        "Invalid lead ID."
+      );
+
+      error.statusCode = 400;
+
+      throw error;
+    }
+
+    // ---------------------------------
+    // Get Lead
+    // ---------------------------------
 
     const lead =
       await getLeadById({
-        organizationId:
-          req.organizationId,
-
+        organizationId,
         leadId,
       });
 
+    // ---------------------------------
+    // Response
+    // ---------------------------------
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
 
       message:
@@ -199,7 +291,6 @@ const getLead = async (
   }
 };
 
-
 // =====================================
 // UPDATE LEAD
 // =====================================
@@ -210,10 +301,33 @@ const updateLeadController = async (
   next
 ) => {
   try {
-    const {
-      leadId,
-    } = req.params;
+    const organizationId =
+      getOrganizationId(req);
 
+    const { leadId } =
+      req.params;
+
+    // ---------------------------------
+    // Validate Lead ID
+    // ---------------------------------
+
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        leadId
+      )
+    ) {
+      const error = new Error(
+        "Invalid lead ID."
+      );
+
+      error.statusCode = 400;
+
+      throw error;
+    }
+
+    // ---------------------------------
+    // Request Body
+    // ---------------------------------
 
     const {
       name,
@@ -228,13 +342,11 @@ const updateLeadController = async (
       nextFollowUpAt,
     } = req.body;
 
-
     const updateData = {};
 
-
-    // -------------------------------------
-    // Allowed Fields
-    // -------------------------------------
+    // ---------------------------------
+    // Name
+    // ---------------------------------
 
     if (name !== undefined) {
       if (
@@ -242,7 +354,7 @@ const updateLeadController = async (
         !name.trim()
       ) {
         const error = new Error(
-          "Lead name cannot be empty"
+          "Lead name cannot be empty."
         );
 
         error.statusCode = 400;
@@ -254,36 +366,60 @@ const updateLeadController = async (
         name.trim();
     }
 
+    // ---------------------------------
+    // Email
+    // ---------------------------------
 
     if (email !== undefined) {
       updateData.email =
-        email?.trim();
+        typeof email === "string"
+          ? email.trim()
+          : email;
     }
 
+    // ---------------------------------
+    // Phone
+    // ---------------------------------
 
     if (phone !== undefined) {
       updateData.phone =
-        phone?.trim();
+        typeof phone === "string"
+          ? phone.trim()
+          : phone;
     }
 
+    // ---------------------------------
+    // Company
+    // ---------------------------------
 
     if (company !== undefined) {
       updateData.company =
-        company?.trim();
+        typeof company === "string"
+          ? company.trim()
+          : company;
     }
 
+    // ---------------------------------
+    // Source
+    // ---------------------------------
 
     if (source !== undefined) {
       updateData.source =
         source;
     }
 
+    // ---------------------------------
+    // Priority
+    // ---------------------------------
 
     if (priority !== undefined) {
       updateData.priority =
         priority;
     }
 
+    // ---------------------------------
+    // Estimated Value
+    // ---------------------------------
 
     if (
       estimatedValue !== undefined
@@ -292,12 +428,20 @@ const updateLeadController = async (
         estimatedValue;
     }
 
+    // ---------------------------------
+    // Notes
+    // ---------------------------------
 
     if (notes !== undefined) {
       updateData.notes =
-        notes?.trim();
+        typeof notes === "string"
+          ? notes.trim()
+          : notes;
     }
 
+    // ---------------------------------
+    // Assigned To
+    // ---------------------------------
 
     if (
       assignedTo !== undefined
@@ -306,6 +450,9 @@ const updateLeadController = async (
         assignedTo;
     }
 
+    // ---------------------------------
+    // Follow Up
+    // ---------------------------------
 
     if (
       nextFollowUpAt !== undefined
@@ -314,23 +461,22 @@ const updateLeadController = async (
         nextFollowUpAt;
     }
 
-
-    // -------------------------------------
+    // ---------------------------------
     // Update Lead
-    // -------------------------------------
+    // ---------------------------------
 
     const lead =
       await updateLead({
-        organizationId:
-          req.organizationId,
-
+        organizationId,
         leadId,
-
         updateData,
       });
 
+    // ---------------------------------
+    // Response
+    // ---------------------------------
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
 
       message:
@@ -345,7 +491,6 @@ const updateLeadController = async (
   }
 };
 
-
 // =====================================
 // CHANGE LEAD STATUS
 // =====================================
@@ -356,18 +501,36 @@ const updateLeadStatus = async (
   next
 ) => {
   try {
-    const {
-      leadId,
-    } = req.params;
+    const organizationId =
+      getOrganizationId(req);
 
-    const {
-      status,
-    } = req.body;
+    const { leadId } =
+      req.params;
 
+    const { status } =
+      req.body;
 
-    // -------------------------------------
+    // ---------------------------------
+    // Validate Lead ID
+    // ---------------------------------
+
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        leadId
+      )
+    ) {
+      const error = new Error(
+        "Invalid lead ID."
+      );
+
+      error.statusCode = 400;
+
+      throw error;
+    }
+
+    // ---------------------------------
     // Allowed Statuses
-    // -------------------------------------
+    // ---------------------------------
 
     const allowedStatuses = [
       "new",
@@ -378,13 +541,14 @@ const updateLeadStatus = async (
       "lost",
     ];
 
-
     if (
       !status ||
-      !allowedStatuses.includes(status)
+      !allowedStatuses.includes(
+        status
+      )
     ) {
       const error = new Error(
-        "Invalid lead status"
+        "Invalid lead status."
       );
 
       error.statusCode = 400;
@@ -392,23 +556,22 @@ const updateLeadStatus = async (
       throw error;
     }
 
-
-    // -------------------------------------
-    // Update Status
-    // -------------------------------------
+    // ---------------------------------
+    // Change Status
+    // ---------------------------------
 
     const lead =
       await changeLeadStatus({
-        organizationId:
-          req.organizationId,
-
+        organizationId,
         leadId,
-
         status,
       });
 
+    // ---------------------------------
+    // Response
+    // ---------------------------------
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
 
       message:
@@ -423,7 +586,6 @@ const updateLeadStatus = async (
   }
 };
 
-
 // =====================================
 // DELETE / ARCHIVE LEAD
 // =====================================
@@ -434,21 +596,45 @@ const removeLead = async (
   next
 ) => {
   try {
-    const {
-      leadId,
-    } = req.params;
+    const organizationId =
+      getOrganizationId(req);
 
+    const { leadId } =
+      req.params;
+
+    // ---------------------------------
+    // Validate Lead ID
+    // ---------------------------------
+
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        leadId
+      )
+    ) {
+      const error = new Error(
+        "Invalid lead ID."
+      );
+
+      error.statusCode = 400;
+
+      throw error;
+    }
+
+    // ---------------------------------
+    // Archive
+    // ---------------------------------
 
     const lead =
       await deleteLead({
-        organizationId:
-          req.organizationId,
-
+        organizationId,
         leadId,
       });
 
+    // ---------------------------------
+    // Response
+    // ---------------------------------
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
 
       message:
@@ -463,7 +649,6 @@ const removeLead = async (
   }
 };
 
-
 // =====================================
 // LEAD STATISTICS
 // =====================================
@@ -474,13 +659,23 @@ const leadStats = async (
   next
 ) => {
   try {
+    const organizationId =
+      getOrganizationId(req);
+
+    // ---------------------------------
+    // Get Statistics
+    // ---------------------------------
+
     const stats =
       await getLeadStats(
-        req.organizationId
+        organizationId
       );
 
+    // ---------------------------------
+    // Response
+    // ---------------------------------
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
 
       message:
@@ -494,7 +689,6 @@ const leadStats = async (
     next(error);
   }
 };
-
 
 // =====================================
 // EXPORT
