@@ -24,13 +24,23 @@ const validateObjectId = (id, name = "ID") => {
   }
 };
 
+const populatePayment = (query) =>
+  query
+    .populate(
+      "invoice",
+      "invoiceNumber totalAmount paidAmount balanceDue status"
+    )
+    .populate(
+      "customer",
+      "firstName lastName email phone"
+    );
+
 // =====================================
 // GENERATE PAYMENT NUMBER
 // =====================================
 
 const generatePaymentNumber = async (session) => {
   const year = new Date().getFullYear();
-
   const prefix = `PAY-${year}-`;
 
   const lastPayment = await Payment.findOne({
@@ -64,11 +74,17 @@ const findPayment = async ({
 }) => {
   validateObjectId(paymentId, "Payment ID");
 
-  const payment = await Payment.findOne({
+  let query = Payment.findOne({
     _id: paymentId,
     organization: organizationId,
     isActive: true,
-  }).session(session || null);
+  });
+
+  if (session) {
+    query = query.session(session);
+  }
+
+  const payment = await query;
 
   if (!payment) {
     throw createError("Payment not found", 404);
@@ -94,7 +110,7 @@ const syncInvoiceBalance = async ({
 
   const paidAmount = roundMoney(
     payments.reduce(
-      (total, payment) => total + payment.amount,
+      (total, payment) => total + Number(payment.amount),
       0
     )
   );
@@ -116,9 +132,7 @@ const syncInvoiceBalance = async ({
       new Date(invoice.dueDate) < new Date()
     ) {
       invoice.status = "overdue";
-    } else if (
-      invoice.status !== "draft"
-    ) {
+    } else if (invoice.status !== "draft") {
       invoice.status = "sent";
     } else {
       invoice.status = "draft";
@@ -176,18 +190,19 @@ const createPayment = async ({
       }
 
       if (
-        String(invoice.customer) !==
-        String(customer._id)
+        String(invoice.customer) !== String(customer._id)
       ) {
         throw createError(
           "Customer does not match the invoice"
         );
       }
 
+      const currency = (
+        data.currency || invoice.currency
+      ).toUpperCase();
+
       if (
-        data.currency &&
-        data.currency.toUpperCase() !==
-          invoice.currency.toUpperCase()
+        currency !== invoice.currency.toUpperCase()
       ) {
         throw createError(
           "Payment currency must match invoice currency"
@@ -196,7 +211,7 @@ const createPayment = async ({
 
       const amount = roundMoney(data.amount);
 
-      if (amount <= 0) {
+      if (!Number.isFinite(amount) || amount <= 0) {
         throw createError(
           "Payment amount must be greater than zero"
         );
@@ -221,14 +236,12 @@ const createPayment = async ({
         );
       }
 
-      // Prevent duplicate transaction IDs
       if (data.transactionId) {
-        const existingTransaction =
-          await Payment.findOne({
-            organization: organizationId,
-            transactionId: data.transactionId,
-            isActive: true,
-          }).session(session);
+        const existingTransaction = await Payment.findOne({
+          organization: organizationId,
+          transactionId: data.transactionId,
+          isActive: true,
+        }).session(session);
 
         if (existingTransaction) {
           throw createError(
@@ -249,13 +262,11 @@ const createPayment = async ({
             customer: customer._id,
             paymentNumber,
             amount,
-            currency:
-              data.currency || invoice.currency,
+            currency,
             paymentMethod: data.paymentMethod,
             status: paymentStatus,
             transactionId: data.transactionId || "",
-            referenceNumber:
-              data.referenceNumber || "",
+            referenceNumber: data.referenceNumber || "",
             paymentDate: data.paymentDate
               ? new Date(data.paymentDate)
               : new Date(),
@@ -276,11 +287,9 @@ const createPayment = async ({
       createdPayment = payment;
     });
 
-    return await Payment.findById(
-      createdPayment._id
-    )
-      .populate("invoice", "invoiceNumber totalAmount paidAmount balanceDue status")
-      .populate("customer", "name email phone");
+    return await populatePayment(
+      Payment.findById(createdPayment._id)
+    );
   } finally {
     await session.endSession();
   }
@@ -294,6 +303,8 @@ const getOrganizationPayments = async ({
   organizationId,
   query = {},
 }) => {
+  validateObjectId(organizationId, "Organization ID");
+
   const filter = {
     organization: organizationId,
     isActive: true,
@@ -315,15 +326,9 @@ const getOrganizationPayments = async ({
     filter.paymentMethod = query.paymentMethod;
   }
 
-  const payments = await Payment.find(filter)
-    .populate(
-      "invoice",
-      "invoiceNumber totalAmount paidAmount balanceDue status"
-    )
-    .populate("customer", "name email phone")
-    .sort({ createdAt: -1 });
-
-  return payments;
+  return await populatePayment(
+    Payment.find(filter).sort({ createdAt: -1 })
+  );
 };
 
 // =====================================
@@ -334,16 +339,16 @@ const getPaymentById = async ({
   organizationId,
   paymentId,
 }) => {
-  const payment = await Payment.findOne({
-    _id: paymentId,
-    organization: organizationId,
-    isActive: true,
-  })
-    .populate(
-      "invoice",
-      "invoiceNumber totalAmount paidAmount balanceDue status"
-    )
-    .populate("customer", "name email phone");
+  validateObjectId(organizationId, "Organization ID");
+  validateObjectId(paymentId, "Payment ID");
+
+  const payment = await populatePayment(
+    Payment.findOne({
+      _id: paymentId,
+      organization: organizationId,
+      isActive: true,
+    })
+  );
 
   if (!payment) {
     throw createError("Payment not found", 404);
@@ -361,6 +366,8 @@ const updatePayment = async ({
   paymentId,
   data,
 }) => {
+  validateObjectId(organizationId, "Organization ID");
+
   const session = await mongoose.startSession();
 
   let updatedPayment;
@@ -386,15 +393,12 @@ const updatePayment = async ({
       const oldStatus = payment.status;
       const newStatus = data.status || oldStatus;
 
-      // Do not allow editing a refunded payment
       if (oldStatus === "refunded") {
         throw createError(
           "Refunded payment cannot be updated"
         );
       }
 
-      // Prevent directly changing completed payments
-      // back to pending or failed. Use refund handling.
       if (
         oldStatus === "completed" &&
         ["pending", "failed", "cancelled"].includes(
@@ -410,6 +414,12 @@ const updatePayment = async ({
         oldStatus !== "completed" &&
         newStatus === "completed"
       ) {
+        if (invoice.status === "cancelled") {
+          throw createError(
+            "Cannot complete payment for a cancelled invoice"
+          );
+        }
+
         const currentPaid = roundMoney(
           invoice.paidAmount || 0
         );
@@ -425,7 +435,6 @@ const updatePayment = async ({
         }
       }
 
-      // Check transaction ID uniqueness
       if (data.transactionId) {
         const duplicate = await Payment.findOne({
           organization: organizationId,
@@ -451,14 +460,11 @@ const updatePayment = async ({
       }
 
       if (data.referenceNumber !== undefined) {
-        payment.referenceNumber =
-          data.referenceNumber;
+        payment.referenceNumber = data.referenceNumber;
       }
 
       if (data.paymentDate !== undefined) {
-        payment.paymentDate = new Date(
-          data.paymentDate
-        );
+        payment.paymentDate = new Date(data.paymentDate);
       }
 
       if (data.notes !== undefined) {
@@ -483,14 +489,9 @@ const updatePayment = async ({
       updatedPayment = payment;
     });
 
-    return await Payment.findById(
-      updatedPayment._id
-    )
-      .populate(
-        "invoice",
-        "invoiceNumber totalAmount paidAmount balanceDue status"
-      )
-      .populate("customer", "name email phone");
+    return await populatePayment(
+      Payment.findById(updatedPayment._id)
+    );
   } finally {
     await session.endSession();
   }
@@ -504,6 +505,8 @@ const refundPayment = async ({
   organizationId,
   paymentId,
 }) => {
+  validateObjectId(organizationId, "Organization ID");
+
   const session = await mongoose.startSession();
 
   let refundedPayment;
@@ -544,14 +547,9 @@ const refundPayment = async ({
       refundedPayment = payment;
     });
 
-    return await Payment.findById(
-      refundedPayment._id
-    )
-      .populate(
-        "invoice",
-        "invoiceNumber totalAmount paidAmount balanceDue status"
-      )
-      .populate("customer", "name email phone");
+    return await populatePayment(
+      Payment.findById(refundedPayment._id)
+    );
   } finally {
     await session.endSession();
   }
@@ -565,35 +563,47 @@ const cancelPayment = async ({
   organizationId,
   paymentId,
 }) => {
-  const payment = await Payment.findOne({
-    _id: paymentId,
-    organization: organizationId,
-    isActive: true,
-  });
+  validateObjectId(organizationId, "Organization ID");
 
-  if (!payment) {
-    throw createError("Payment not found", 404);
-  }
+  const session = await mongoose.startSession();
 
-  if (payment.status === "completed") {
-    throw createError(
-      "Completed payments must be refunded"
+  let cancelledPayment;
+
+  try {
+    await session.withTransaction(async () => {
+      const payment = await findPayment({
+        organizationId,
+        paymentId,
+        session,
+      });
+
+      if (payment.status === "completed") {
+        throw createError(
+          "Completed payments must be refunded"
+        );
+      }
+
+      if (
+        ["refunded", "cancelled"].includes(payment.status)
+      ) {
+        throw createError(
+          "Payment is already refunded or cancelled"
+        );
+      }
+
+      payment.status = "cancelled";
+
+      await payment.save({ session });
+
+      cancelledPayment = payment;
+    });
+
+    return await populatePayment(
+      Payment.findById(cancelledPayment._id)
     );
+  } finally {
+    await session.endSession();
   }
-
-  if (
-    ["refunded", "cancelled"].includes(payment.status)
-  ) {
-    throw createError(
-      "Payment is already refunded or cancelled"
-    );
-  }
-
-  payment.status = "cancelled";
-
-  await payment.save();
-
-  return payment;
 };
 
 // =====================================
@@ -603,19 +613,24 @@ const cancelPayment = async ({
 const getPaymentStats = async ({
   organizationId,
 }) => {
+  validateObjectId(organizationId, "Organization ID");
+
+  const organizationObjectId =
+    new mongoose.Types.ObjectId(organizationId);
+
+  const match = {
+    organization: organizationObjectId,
+    isActive: true,
+  };
+
   const result = await Payment.aggregate([
-    {
-      $match: {
-        organization: new mongoose.Types.ObjectId(
-          organizationId
-        ),
-        isActive: true,
-      },
-    },
+    { $match: match },
     {
       $group: {
         _id: null,
         totalPayments: { $sum: 1 },
+
+        // All recorded payment amounts
         totalAmount: { $sum: "$amount" },
 
         completedAmount: {
@@ -652,14 +667,7 @@ const getPaymentStats = async ({
   ]);
 
   const methodStats = await Payment.aggregate([
-    {
-      $match: {
-        organization: new mongoose.Types.ObjectId(
-          organizationId
-        ),
-        isActive: true,
-      },
-    },
+    { $match: match },
     {
       $group: {
         _id: "$paymentMethod",

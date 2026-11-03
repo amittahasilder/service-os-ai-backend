@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const Invoice = require("../models/Invoice");
@@ -6,14 +7,34 @@ const Quote = require("../models/Quote");
 const Customer = require("../models/Customer");
 
 // =====================================
+// HELPERS
+// =====================================
+
+const createError = (message, statusCode = 400) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const validateObjectId = (id, name = "ID") => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw createError(`Invalid ${name}`, 400);
+  }
+};
+
+const roundMoney = (amount) =>
+  Math.round((Number(amount) + Number.EPSILON) * 100) / 100;
+
+// =====================================
 // GENERATE INVOICE NUMBER
 // =====================================
 
 const generateInvoiceNumber = async () => {
   const year = new Date().getFullYear();
+  const prefix = `INV-${year}-`;
 
   const latestInvoice = await Invoice.findOne({
-    invoiceNumber: new RegExp(`^INV-${year}-`),
+    invoiceNumber: new RegExp(`^${prefix}`),
   })
     .sort({ createdAt: -1 })
     .select("invoiceNumber")
@@ -31,11 +52,11 @@ const generateInvoiceNumber = async () => {
     }
   }
 
-  return `INV-${year}-${String(nextNumber).padStart(5, "0")}`;
+  return `${prefix}${String(nextNumber).padStart(5, "0")}`;
 };
 
 // =====================================
-// CALCULATE INVOICE TOTALS
+// CALCULATE TOTALS
 // =====================================
 
 const calculateTotals = ({
@@ -49,50 +70,86 @@ const calculateTotals = ({
     const quantity = Number(item.quantity);
     const unitPrice = Number(item.unitPrice);
 
+    if (
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !Number.isFinite(unitPrice) ||
+      unitPrice < 0
+    ) {
+      throw createError("Invalid invoice item quantity or price");
+    }
+
     return {
       ...item,
-      total: Number((quantity * unitPrice).toFixed(2)),
+      total: roundMoney(quantity * unitPrice),
     };
   });
 
-  const subtotal = Number(
-    calculatedItems
-      .reduce((sum, item) => sum + item.total, 0)
-      .toFixed(2)
+  const subtotal = roundMoney(
+    calculatedItems.reduce((sum, item) => sum + item.total, 0)
   );
 
-  let discountAmount = 0;
+  const safeDiscountValue = Number(discountValue);
+  const safeTaxRate = Number(taxRate);
 
-  if (discountType === "percentage") {
-    discountAmount = subtotal * (Number(discountValue) / 100);
-  } else {
-    discountAmount = Number(discountValue) || 0;
+  if (
+    !Number.isFinite(safeDiscountValue) ||
+    safeDiscountValue < 0
+  ) {
+    throw createError("Invalid discount value");
   }
 
-  // Discount cannot exceed subtotal
-  discountAmount = Math.min(discountAmount, subtotal);
+  if (
+    !Number.isFinite(safeTaxRate) ||
+    safeTaxRate < 0
+  ) {
+    throw createError("Invalid tax rate");
+  }
 
-  discountAmount = Number(discountAmount.toFixed(2));
+  if (
+    discountType !== "fixed" &&
+    discountType !== "percentage"
+  ) {
+    throw createError("Invalid discount type");
+  }
 
-  const taxableAmount = Number(
-    (subtotal - discountAmount).toFixed(2)
+  if (
+    discountType === "percentage" &&
+    safeDiscountValue > 100
+  ) {
+    throw createError("Percentage discount cannot exceed 100%");
+  }
+
+  let discountAmount =
+    discountType === "percentage"
+      ? subtotal * (safeDiscountValue / 100)
+      : safeDiscountValue;
+
+  discountAmount = roundMoney(
+    Math.min(discountAmount, subtotal)
   );
 
-  const taxAmount = Number(
-    (taxableAmount * (Number(taxRate) / 100)).toFixed(2)
+  const taxableAmount = roundMoney(
+    subtotal - discountAmount
   );
 
-  const totalAmount = Number(
-    (taxableAmount + taxAmount).toFixed(2)
+  const taxAmount = roundMoney(
+    taxableAmount * (safeTaxRate / 100)
   );
 
-  const safePaidAmount = Math.min(
-    Math.max(Number(paidAmount) || 0, 0),
-    totalAmount
+  const totalAmount = roundMoney(
+    taxableAmount + taxAmount
   );
 
-  const balanceDue = Number(
-    (totalAmount - safePaidAmount).toFixed(2)
+  const safePaidAmount = roundMoney(
+    Math.min(
+      Math.max(Number(paidAmount) || 0, 0),
+      totalAmount
+    )
+  );
+
+  const balanceDue = roundMoney(
+    totalAmount - safePaidAmount
   );
 
   return {
@@ -101,7 +158,7 @@ const calculateTotals = ({
     discountAmount,
     taxAmount,
     totalAmount,
-    paidAmount: Number(safePaidAmount.toFixed(2)),
+    paidAmount: safePaidAmount,
     balanceDue,
   };
 };
@@ -116,37 +173,42 @@ const calculateInvoiceStatus = ({
   totalAmount,
   dueDate,
 }) => {
-  // Explicit cancelled status
   if (status === "cancelled") {
     return "cancelled";
   }
 
-  // Fully paid
-  if (paidAmount >= totalAmount && totalAmount > 0) {
+  if (status === "draft") {
+    return "draft";
+  }
+
+  if (totalAmount > 0 && paidAmount >= totalAmount) {
     return "paid";
   }
 
-  // Partially paid
-  if (paidAmount > 0 && paidAmount < totalAmount) {
-    return "partially_paid";
-  }
-
-  // Overdue
   if (
     dueDate &&
-    new Date(dueDate).getTime() < Date.now() &&
-    paidAmount < totalAmount
+    new Date(dueDate).getTime() < Date.now()
   ) {
     return "overdue";
   }
 
-  // Preserve draft/sent
-  if (status === "sent") {
-    return "sent";
+  if (paidAmount > 0) {
+    return "partially_paid";
   }
 
-  return "draft";
+  return "sent";
 };
+
+// =====================================
+// POPULATE INVOICE
+// =====================================
+
+const populateInvoice = (query) =>
+  query
+    .populate("job", "jobNumber title status")
+    .populate("quote", "quoteNumber title status totalAmount")
+    .populate("customer", "firstName lastName email phone")
+    .populate("createdBy", "firstName lastName email");
 
 // =====================================
 // CREATE INVOICE
@@ -157,15 +219,9 @@ const createInvoice = async ({
   userId,
   data,
 }) => {
-  if (!mongoose.Types.ObjectId.isValid(organizationId)) {
-    const error = new Error("Invalid organization ID");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  // =====================================
-  // FIND JOB
-  // =====================================
+  validateObjectId(organizationId, "Organization ID");
+  validateObjectId(data.job, "Job ID");
+  validateObjectId(data.customer, "Customer ID");
 
   const job = await Job.findOne({
     _id: data.job,
@@ -174,17 +230,11 @@ const createInvoice = async ({
   });
 
   if (!job) {
-    const error = new Error(
-      "Job not found or does not belong to this organization"
+    throw createError(
+      "Job not found or does not belong to this organization",
+      404
     );
-
-    error.statusCode = 404;
-    throw error;
   }
-
-  // =====================================
-  // FIND CUSTOMER
-  // =====================================
 
   const customer = await Customer.findOne({
     _id: data.customer,
@@ -193,34 +243,23 @@ const createInvoice = async ({
   });
 
   if (!customer) {
-    const error = new Error(
-      "Customer not found or does not belong to this organization"
+    throw createError(
+      "Customer not found or does not belong to this organization",
+      404
     );
-
-    error.statusCode = 404;
-    throw error;
   }
 
-  // =====================================
-  // JOB CUSTOMER CHECK
-  // =====================================
-
-  if (job.customer.toString() !== customer._id.toString()) {
-    const error = new Error(
+  if (String(job.customer) !== String(customer._id)) {
+    throw createError(
       "Selected customer does not belong to this job"
     );
-
-    error.statusCode = 400;
-    throw error;
   }
-
-  // =====================================
-  // OPTIONAL QUOTE
-  // =====================================
 
   let quote = null;
 
   if (data.quote) {
+    validateObjectId(data.quote, "Quote ID");
+
     quote = await Quote.findOne({
       _id: data.quote,
       organization: organizationId,
@@ -228,38 +267,22 @@ const createInvoice = async ({
     });
 
     if (!quote) {
-      const error = new Error(
-        "Quote not found or does not belong to this organization"
+      throw createError(
+        "Quote not found or does not belong to this organization",
+        404
       );
-
-      error.statusCode = 404;
-      throw error;
     }
 
-    // Quote must belong to same job
-    if (quote.job.toString() !== job._id.toString()) {
-      const error = new Error(
-        "Selected quote does not belong to this job"
-      );
-
-      error.statusCode = 400;
-      throw error;
+    if (String(quote.job) !== String(job._id)) {
+      throw createError("Selected quote does not belong to this job");
     }
 
-    // Quote must belong to same customer
-    if (quote.customer.toString() !== customer._id.toString()) {
-      const error = new Error(
+    if (String(quote.customer) !== String(customer._id)) {
+      throw createError(
         "Selected quote does not belong to this customer"
       );
-
-      error.statusCode = 400;
-      throw error;
     }
   }
-
-  // =====================================
-  // PREVENT DUPLICATE ACTIVE INVOICE
-  // =====================================
 
   const existingInvoice = await Invoice.findOne({
     organization: organizationId,
@@ -268,26 +291,18 @@ const createInvoice = async ({
   });
 
   if (existingInvoice) {
-    const error = new Error(
-      "An active invoice already exists for this job"
+    throw createError(
+      "An active invoice already exists for this job",
+      409
     );
-
-    error.statusCode = 409;
-    throw error;
   }
-
-  // =====================================
-  // VALIDATE DATES
-  // =====================================
 
   const issueDate = data.issueDate
     ? new Date(data.issueDate)
     : new Date();
 
   if (Number.isNaN(issueDate.getTime())) {
-    const error = new Error("Invalid issue date");
-    error.statusCode = 400;
-    throw error;
+    throw createError("Invalid issue date");
   }
 
   let dueDate = null;
@@ -296,53 +311,46 @@ const createInvoice = async ({
     dueDate = new Date(data.dueDate);
 
     if (Number.isNaN(dueDate.getTime())) {
-      const error = new Error("Invalid due date");
-      error.statusCode = 400;
-      throw error;
+      throw createError("Invalid due date");
     }
 
     if (dueDate < issueDate) {
-      const error = new Error(
+      throw createError(
         "Due date cannot be before issue date"
       );
-
-      error.statusCode = 400;
-      throw error;
     }
   }
 
-  // =====================================
-  // CALCULATE TOTALS
-  // =====================================
-
   const totals = calculateTotals({
-    items: data.items,
+    items: data.items || [],
     discountType: data.discountType || "fixed",
-    discountValue: data.discountValue || 0,
-    taxRate: data.taxRate || 0,
+    discountValue: data.discountValue ?? 0,
+    taxRate: data.taxRate ?? 0,
     paidAmount: 0,
   });
 
-  // =====================================
-  // GENERATE NUMBER
-  // =====================================
+  const currency = (data.currency || "BDT").toUpperCase();
+
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw createError("Invalid invoice currency");
+  }
+
+  const requestedStatus = data.status || "draft";
+
+  if (!["draft", "sent"].includes(requestedStatus)) {
+    throw createError(
+      "New invoices can only be created as draft or sent"
+    );
+  }
 
   const invoiceNumber = await generateInvoiceNumber();
 
-  // =====================================
-  // STATUS
-  // =====================================
-
   const status = calculateInvoiceStatus({
-    status: data.status || "draft",
+    status: requestedStatus,
     paidAmount: totals.paidAmount,
     totalAmount: totals.totalAmount,
     dueDate,
   });
-
-  // =====================================
-  // CREATE INVOICE
-  // =====================================
 
   const invoice = await Invoice.create({
     organization: organizationId,
@@ -351,97 +359,64 @@ const createInvoice = async ({
     customer: customer._id,
 
     invoiceNumber,
-
     title: data.title,
     description: data.description || "",
 
     items: totals.items,
-
     subtotal: totals.subtotal,
 
     discountType: data.discountType || "fixed",
-    discountValue: data.discountValue || 0,
+    discountValue: data.discountValue ?? 0,
     discountAmount: totals.discountAmount,
 
-    taxRate: data.taxRate || 0,
+    taxRate: data.taxRate ?? 0,
     taxAmount: totals.taxAmount,
 
     totalAmount: totals.totalAmount,
-
-    currency: (data.currency || "BDT").toUpperCase(),
-
+    currency,
     status,
 
     issueDate,
     dueDate,
 
-    paidAmount: totals.paidAmount,
+    paidAmount: 0,
     balanceDue: totals.balanceDue,
 
     customerNotes: data.customerNotes || "",
     termsAndConditions: data.termsAndConditions || "",
 
     createdBy: userId,
-
     isActive: true,
   });
 
-  // =====================================
-  // POPULATE
-  // =====================================
-
-  return Invoice.findById(invoice._id)
-    .populate("job", "jobNumber title status")
-    .populate("quote", "quoteNumber title status totalAmount")
-    .populate(
-      "customer",
-      "firstName lastName email phone"
-    )
-    .populate(
-      "createdBy",
-      "firstName lastName email"
-    );
+  return populateInvoice(
+    Invoice.findById(invoice._id)
+  );
 };
 
 // =====================================
-// GET ALL INVOICES
+// GET ORGANIZATION INVOICES
 // =====================================
 
 const getOrganizationInvoices = async ({
   organizationId,
   query = {},
 }) => {
+  validateObjectId(organizationId, "Organization ID");
+
   const filter = {
     organization: organizationId,
     isActive: true,
   };
 
-  if (query.status) {
-    filter.status = query.status;
-  }
+  if (query.status) filter.status = query.status;
+  if (query.customer) filter.customer = query.customer;
+  if (query.job) filter.job = query.job;
+  if (query.quote) filter.quote = query.quote;
 
-  if (query.customer) {
-    filter.customer = query.customer;
-  }
-
-  if (query.job) {
-    filter.job = query.job;
-  }
-
-  if (query.quote) {
-    filter.quote = query.quote;
-  }
-
-  const invoices = await Invoice.find(filter)
-    .populate("job", "jobNumber title status")
-    .populate("quote", "quoteNumber title status totalAmount")
-    .populate(
-      "customer",
-      "firstName lastName email phone"
-    )
-    .sort({ createdAt: -1 });
-
-  return invoices;
+  return populateInvoice(
+    Invoice.find(filter).sort({ createdAt: -1 })
+  );
 };
 
 // =====================================
@@ -452,26 +427,19 @@ const getInvoiceById = async ({
   organizationId,
   invoiceId,
 }) => {
-  const invoice = await Invoice.findOne({
-    _id: invoiceId,
-    organization: organizationId,
-    isActive: true,
-  })
-    .populate("job", "jobNumber title status")
-    .populate("quote", "quoteNumber title status totalAmount")
-    .populate(
-      "customer",
-      "firstName lastName email phone"
-    )
-    .populate(
-      "createdBy",
-      "firstName lastName email"
-    );
+  validateObjectId(organizationId, "Organization ID");
+  validateObjectId(invoiceId, "Invoice ID");
+
+  const invoice = await populateInvoice(
+    Invoice.findOne({
+      _id: invoiceId,
+      organization: organizationId,
+      isActive: true,
+    })
+  );
 
   if (!invoice) {
-    const error = new Error("Invoice not found");
-    error.statusCode = 404;
-    throw error;
+    throw createError("Invoice not found", 404);
   }
 
   return invoice;
@@ -486,6 +454,9 @@ const updateInvoice = async ({
   invoiceId,
   data,
 }) => {
+  validateObjectId(organizationId, "Organization ID");
+  validateObjectId(invoiceId, "Invoice ID");
+
   const invoice = await Invoice.findOne({
     _id: invoiceId,
     organization: organizationId,
@@ -493,54 +464,55 @@ const updateInvoice = async ({
   });
 
   if (!invoice) {
-    const error = new Error("Invoice not found");
-    error.statusCode = 404;
-    throw error;
+    throw createError("Invoice not found", 404);
   }
 
-  // =====================================
-  // PROTECT PAID INVOICE
-  // =====================================
+  if (invoice.status === "cancelled") {
+    throw createError("Cancelled invoices cannot be updated");
+  }
 
-  if (
-    invoice.status === "paid" &&
-    data.status !== "cancelled"
-  ) {
-    const financialFields = [
-      "items",
-      "discountType",
-      "discountValue",
-      "taxRate",
-      "totalAmount",
-    ];
+  const hasPayments = Number(invoice.paidAmount || 0) > 0;
 
-    const tryingToChangeFinancialData =
-      financialFields.some((field) =>
+  const financialFields = [
+    "items",
+    "discountType",
+    "discountValue",
+    "taxRate",
+    "currency",
+    "totalAmount",
+    "paidAmount",
+    "balanceDue",
+  ];
+
+  if (hasPayments) {
+    const tryingToChangeFinancialData = financialFields.some(
+      (field) =>
         Object.prototype.hasOwnProperty.call(data, field)
-      );
+    );
 
     if (tryingToChangeFinancialData) {
-      const error = new Error(
-        "Paid invoice financial details cannot be modified"
+      throw createError(
+        "Invoice financial details cannot be changed after payments. Refund or reconcile payments first."
       );
-
-      error.statusCode = 400;
-      throw error;
     }
   }
 
-  // =====================================
-  // DATES
-  // =====================================
+  if (
+    data.status !== undefined &&
+    !["draft", "sent"].includes(data.status)
+  ) {
+    throw createError(
+      "Use the cancel endpoint to cancel an invoice. Payment status is managed by payments."
+    );
+  }
 
-  const issueDate = data.issueDate
-    ? new Date(data.issueDate)
-    : invoice.issueDate;
+  const issueDate =
+    data.issueDate !== undefined
+      ? new Date(data.issueDate)
+      : invoice.issueDate;
 
   if (Number.isNaN(issueDate.getTime())) {
-    const error = new Error("Invalid issue date");
-    error.statusCode = 400;
-    throw error;
+    throw createError("Invalid issue date");
   }
 
   let dueDate =
@@ -554,23 +526,14 @@ const updateInvoice = async ({
     dueDate &&
     Number.isNaN(dueDate.getTime())
   ) {
-    const error = new Error("Invalid due date");
-    error.statusCode = 400;
-    throw error;
+    throw createError("Invalid due date");
   }
 
   if (dueDate && dueDate < issueDate) {
-    const error = new Error(
+    throw createError(
       "Due date cannot be before issue date"
     );
-
-    error.statusCode = 400;
-    throw error;
   }
-
-  // =====================================
-  // FINANCIAL RECALCULATION
-  // =====================================
 
   const financialFieldsChanged =
     data.items !== undefined ||
@@ -590,25 +553,16 @@ const updateInvoice = async ({
 
   if (financialFieldsChanged) {
     totals = calculateTotals({
-      items: data.items || invoice.items,
+      items: data.items ?? invoice.items,
       discountType:
-        data.discountType ||
-        invoice.discountType,
+        data.discountType ?? invoice.discountType,
       discountValue:
-        data.discountValue !== undefined
-          ? data.discountValue
-          : invoice.discountValue,
+        data.discountValue ?? invoice.discountValue,
       taxRate:
-        data.taxRate !== undefined
-          ? data.taxRate
-          : invoice.taxRate,
+        data.taxRate ?? invoice.taxRate,
       paidAmount: invoice.paidAmount,
     });
   }
-
-  // =====================================
-  // UPDATE FIELDS
-  // =====================================
 
   if (data.title !== undefined) {
     invoice.title = data.title;
@@ -635,7 +589,13 @@ const updateInvoice = async ({
   }
 
   if (data.currency !== undefined) {
-    invoice.currency = data.currency.toUpperCase();
+    const currency = data.currency.toUpperCase();
+
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      throw createError("Invalid invoice currency");
+    }
+
+    invoice.currency = currency;
   }
 
   if (data.customerNotes !== undefined) {
@@ -643,20 +603,11 @@ const updateInvoice = async ({
   }
 
   if (data.termsAndConditions !== undefined) {
-    invoice.termsAndConditions =
-      data.termsAndConditions;
-  }
-
-  if (data.status !== undefined) {
-    invoice.status = data.status;
+    invoice.termsAndConditions = data.termsAndConditions;
   }
 
   invoice.issueDate = issueDate;
   invoice.dueDate = dueDate;
-
-  // =====================================
-  // APPLY TOTALS
-  // =====================================
 
   invoice.subtotal = totals.subtotal;
   invoice.discountAmount = totals.discountAmount;
@@ -665,12 +616,8 @@ const updateInvoice = async ({
   invoice.paidAmount = totals.paidAmount;
   invoice.balanceDue = totals.balanceDue;
 
-  // =====================================
-  // STATUS
-  // =====================================
-
   invoice.status = calculateInvoiceStatus({
-    status: data.status || invoice.status,
+    status: data.status ?? invoice.status,
     paidAmount: invoice.paidAmount,
     totalAmount: invoice.totalAmount,
     dueDate: invoice.dueDate,
@@ -678,27 +625,22 @@ const updateInvoice = async ({
 
   await invoice.save();
 
-  return Invoice.findById(invoice._id)
-    .populate("job", "jobNumber title status")
-    .populate("quote", "quoteNumber title status totalAmount")
-    .populate(
-      "customer",
-      "firstName lastName email phone"
-    )
-    .populate(
-      "createdBy",
-      "firstName lastName email"
-    );
+  return populateInvoice(
+    Invoice.findById(invoice._id)
+  );
 };
 
 // =====================================
-// DELETE / CANCEL INVOICE
+// CANCEL INVOICE
 // =====================================
 
 const deleteInvoice = async ({
   organizationId,
   invoiceId,
 }) => {
+  validateObjectId(organizationId, "Organization ID");
+  validateObjectId(invoiceId, "Invoice ID");
+
   const invoice = await Invoice.findOne({
     _id: invoiceId,
     organization: organizationId,
@@ -706,35 +648,43 @@ const deleteInvoice = async ({
   });
 
   if (!invoice) {
-    const error = new Error("Invoice not found");
-    error.statusCode = 404;
-    throw error;
+    throw createError("Invoice not found", 404);
+  }
+
+  if (invoice.status === "cancelled") {
+    throw createError("Invoice is already cancelled");
   }
 
   invoice.status = "cancelled";
-  invoice.isActive = false;
+
+  // Keep invoice active for payment history and refunds.
+  invoice.isActive = true;
 
   await invoice.save();
 
-  return invoice;
+  return populateInvoice(
+    Invoice.findById(invoice._id)
+  );
 };
 
 // =====================================
-// INVOICE STATS
+// INVOICE STATISTICS
 // =====================================
 
 const getInvoiceStats = async ({
   organizationId,
 }) => {
+  validateObjectId(organizationId, "Organization ID");
+
   const stats = await Invoice.aggregate([
     {
       $match: {
         organization: new mongoose.Types.ObjectId(
           organizationId
         ),
+        isActive: true,
       },
     },
-
     {
       $group: {
         _id: "$status",
@@ -748,40 +698,31 @@ const getInvoiceStats = async ({
 
   const result = {
     total: 0,
-
     draft: 0,
     sent: 0,
     partially_paid: 0,
     paid: 0,
     overdue: 0,
     cancelled: 0,
-
     totalAmount: 0,
     paidAmount: 0,
     balanceDue: 0,
   };
 
   stats.forEach((item) => {
-    result[item._id] = item.count;
+    if (Object.prototype.hasOwnProperty.call(result, item._id)) {
+      result[item._id] = item.count;
+    }
 
     result.total += item.count;
-
     result.totalAmount += item.amount || 0;
     result.paidAmount += item.paid || 0;
     result.balanceDue += item.balance || 0;
   });
 
-  result.totalAmount = Number(
-    result.totalAmount.toFixed(2)
-  );
-
-  result.paidAmount = Number(
-    result.paidAmount.toFixed(2)
-  );
-
-  result.balanceDue = Number(
-    result.balanceDue.toFixed(2)
-  );
+  result.totalAmount = roundMoney(result.totalAmount);
+  result.paidAmount = roundMoney(result.paidAmount);
+  result.balanceDue = roundMoney(result.balanceDue);
 
   return result;
 };
