@@ -368,6 +368,7 @@
 
 
 
+
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -390,6 +391,7 @@ const invoiceRoutes = require("./routes/invoiceRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 
 // =====================================
@@ -459,6 +461,10 @@ app.use("/api/organizations", paymentRoutes);
 app.use("/api/organizations", expenseRoutes);
 app.use("/api/organizations", inventoryRoutes);
 
+// ANALYTICS ROUTES
+app.use("/api/organizations", analyticsRoutes);
+
+// DASHBOARD ROUTES
 app.use("/api/dashboard", dashboardRoutes);
 
 // =====================================

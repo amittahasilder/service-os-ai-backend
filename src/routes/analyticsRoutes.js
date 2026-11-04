@@ -1,4 +1,3 @@
-
 const express = require("express");
 
 const {
@@ -8,18 +7,28 @@ const {
 const protect = require("../middleware/authMiddleware");
 const tenantMiddleware = require("../middleware/tenantMiddleware");
 const requirePermission = require("../middleware/permissionMiddleware");
-const { PERMISSIONS } = require("../config/permissions");
+
+const { PERMISSIONS } = require("../utils/permissions");
 
 const router = express.Router();
 
 // =====================================
-// ANALYTICS OVERVIEW
-// GET /api/organizations/:organizationId/analytics
+// SET ORGANIZATION
+// =====================================
+
+const setOrganization = (req, res, next) => {
+  req.headers["x-organization-id"] = req.params.organizationId;
+  next();
+};
+
+// =====================================
+// ANALYTICS ROUTE
 // =====================================
 
 router.get(
   "/:organizationId/analytics",
   protect,
+  setOrganization,
   tenantMiddleware,
   requirePermission(PERMISSIONS.ANALYTICS_VIEW),
   getAnalyticsOverview
