@@ -369,6 +369,7 @@
 
 
 
+
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -393,6 +394,7 @@ const expenseRoutes = require("./routes/expenseRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const aiAssistantRoutes = require("./routes/aiAssistantRoutes");
 
 // =====================================
 // GLOBAL ERROR MIDDLEWARE
@@ -463,6 +465,9 @@ app.use("/api/organizations", inventoryRoutes);
 
 // ANALYTICS ROUTES
 app.use("/api/organizations", analyticsRoutes);
+
+// AI ASSISTANT ROUTES
+app.use("/api/organizations", aiAssistantRoutes);
 
 // DASHBOARD ROUTES
 app.use("/api/dashboard", dashboardRoutes);
